@@ -83,11 +83,11 @@ This API allows you to interact with a Pepper robot for camera streaming, gestur
 
 * **GET `/gesture/<gesture_name>`**
   Makes Pepper perform a gesture.
-  **Supported values:** `rock`, `paper`, `scissors`, `swing`
-  **Returns:**
-
-  * `200 OK` if successful
-  * `400 Bad Request` if the gesture is unknown
+  **Supported values:** 
+    * `rock`
+    * `paper`
+    * `scissors`
+    * `swing`
 
 # Setup
 
@@ -142,8 +142,8 @@ docker buildx build \
   --builder multiarch-builder \
   --platform linux/arm64 \
   --load \
-  -t seminar:latest \
-  .
+  -t rps:latest \
+  game_server
 ```
 
 ### PI Wifi Cli
