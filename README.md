@@ -77,17 +77,15 @@ This API allows you to interact with a Pepper robot for camera streaming, gestur
 #### **1. Video Stream**
 
 * **GET `/video_feed`**
+
   Returns an MJPEG video stream from the robot’s camera.
 
 #### **2. Gestures**
 
-* **GET `/gesture/<gesture_name>`**
+* **GET `/gesture/{rock, paper, scissors, swing}`**
+
   Makes Pepper perform a gesture.
-  **Supported values:** 
-    * `rock`
-    * `paper`
-    * `scissors`
-    * `swing`
+
 
 # Setup
 
