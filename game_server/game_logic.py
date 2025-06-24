@@ -41,15 +41,15 @@ def call_robot_gesture_api(gesture_name: str):
 
 def call_robot_speech_api(text_to_speak: str):
     """
-    Makes an HTTP GET request to the robot's speech API endpoint.
+    Makes an HTTP POST request to the robot's speech API endpoint with a JSON body.
     The robot will say the provided text.
     """
-    # URL encode the text to ensure special characters are handled correctly
-    import urllib.parse
-    encoded_text = urllib.parse.quote(text_to_speak)
-    url = f"{ROBOT_API_BASE_URL}/say/{encoded_text}"
+    url = f"{ROBOT_API_BASE_URL}/say"
+    headers = {'Content-Type': 'application/json'}
+    payload = {'text': text_to_speak}
     try:
-        response = requests.get(url, timeout=2) # 2-second timeout for speech
+        # Use requests.post to send a POST request with a JSON payload
+        response = requests.post(url, json=payload, headers=headers, timeout=2) # 2-second timeout for speech
         response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
         print(f"[🤖 API] Successfully called speech API with text: '{text_to_speak}': {response.text}")
         return True
@@ -81,14 +81,11 @@ def play_round(player_move: str) -> dict:
     if _game_over:
         game_state["result"] = "Game over. Please reset to play again."
         # Robot can announce game over if it was already over
-        call_robot_speech_api("Game over. Please reset to play again.")
         return game_state
 
     if now - _last_result_time < COOLDOWN:
         cooldown_remaining = COOLDOWN - (now - _last_result_time)
         game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s"
-        # Robot announces cooldown
-        call_robot_speech_api(f"Cooldown. Please wait {int(cooldown_remaining)} seconds.")
         return game_state
 
     # Robot says "play" when a new round starts
