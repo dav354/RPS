@@ -20,11 +20,11 @@ try:
     asr_service = session.service("ALSpeechRecognition")
     memory_service = session.service("ALMemory")
     life_service = session.service("ALAutonomousLife")
-    awareness_service = session.service("ALBasicAwareness")
-    print("[✅] Successfully connected to NAOqi services.")
+    awareness_service = session.service("BasicAwareness")
+    print("[INFO] Successfully connected to NAOqi services.")
 
 except Exception as e:
-    print("[❌] Error connecting to NAOqi services:", e)
+    print("[ERROR] Error connecting to NAOqi services:", e)
     exit(1)
 
 
@@ -33,17 +33,17 @@ def disable_autonomous_behaviors():
     try:
         if awareness_service.isAwarenessRunning():
             awareness_service.stopAwareness()
-            print("[🔧] Basic Awareness disabled.")
+            print("[CONFIG] Basic Awareness disabled.")
         
         if life_service.getState() != "disabled":
             life_service.setState("disabled")
-            print("[🔧] Autonomous Life disabled.")
+            print("[CONFIG] Autonomous Life disabled.")
 
         motion_service.setStiffnesses("Body", 1.0)
-        print("[🔧] Body stiffness set to 1.0.")
+        print("[CONFIG] Body stiffness set to 1.0.")
 
     except Exception as e:
-        print("[⚠️] Error during autonomous behavior disabling:", e)
+        print("[WARN] Error during autonomous behavior disabling:", e)
 
 # === Camera Setup ===
 camera_name = "flask_cam"
@@ -56,9 +56,9 @@ def setup_camera():
     fps = 20 # Lowered FPS slightly for stability
     try:
         name_id = video_service.subscribeCamera(camera_name, camera_index, resolution, color_space, fps)
-        print("[📹] Camera subscribed successfully.")
+        print("[INFO] Camera subscribed successfully.")
     except Exception as e:
-        print("[❌] Error subscribing to camera:", e)
+        print("[ERROR] Error subscribing to camera:", e)
 
 def generate_video_stream():
     if name_id is None:
@@ -81,7 +81,7 @@ def generate_video_stream():
                    b"Content-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n")
         except Exception as e:
             # If getImageRemote fails, the connection might be lost.
-            print("[⚠️] Error getting image from camera:", e)
+            print("[WARN] Error getting image from camera:", e)
             time.sleep(1) # Wait a second before retrying
 
 @app.route('/video_feed')
@@ -104,7 +104,7 @@ def run_in_thread(target_func):
 
 @run_in_thread
 def do_rock():
-    print("[🤖] Performing: rock")
+    print("[ACTION] Performing: rock")
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
@@ -114,7 +114,7 @@ def do_rock():
 
 @run_in_thread
 def do_paper():
-    print("[🤖] Performing: paper")
+    print("[ACTION] Performing: paper")
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
@@ -124,7 +124,7 @@ def do_paper():
 
 @run_in_thread
 def do_scissors():
-    print("[🤖] Performing: scissors")
+    print("[ACTION] Performing: scissors")
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
@@ -134,7 +134,7 @@ def do_scissors():
 
 @run_in_thread
 def do_swing():
-    print("[🤖] Performing: swing")
+    print("[ACTION] Performing: swing")
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     for _ in range(4):
@@ -164,10 +164,10 @@ def perform_gesture(gesture_name):
 @run_in_thread
 def say_text_threaded(text):
     try:
-        print("[🤖] Saying:", text)
+        print("[ACTION] Saying:", text)
         tts_service.say(str(text))
     except Exception as e:
-        print("[❌] TTS Error:", e)
+        print("[ERROR] TTS Error:", e)
 
 @app.route('/say', methods=['POST'])
 def say_text():
@@ -186,7 +186,7 @@ def listen_for_word():
         asr_service.setVocabulary(vocabulary, False)
         asr_service.startDetection()
 
-        print("[👂] Listening for words...")
+        print("[INFO] Listening for words...")
         
         word_heard = None
         start_time = time.time()
@@ -215,7 +215,7 @@ if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=5001)
     finally:
-        print("\n[🛑] Server shutting down. Releasing camera.")
+        print("\n[INFO] Server shutting down. Releasing camera.")
         if name_id:
             video_service.unsubscribe(name_id)
         posture_service.goToPosture("Crouch", 0.5)
