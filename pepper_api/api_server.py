@@ -21,6 +21,15 @@ tts_service = session.service("ALTextToSpeech")
 asr_service = session.service("ALSpeechRecognition")
 memory_service = session.service("ALMemory")
 
+# === Disable Autonomous Movements ===
+def disable_autonomous_behaviors():
+    try:
+        awareness_service.stopAwareness()
+        life_service.setState("disabled")
+        motion_service.setStiffnesses("Body", 1.0)
+        print("[🔧] Autonomous behaviors disabled.")
+    except Exception as e:
+        print("[⚠️] Error disabling autonomous life:", e
 
 # === Camera Setup ===
 camera_name = "flask_cam"
@@ -178,4 +187,5 @@ def listen_for_word():
 
 
 if __name__ == '__main__':
+    disable_autonomous_behaviors()
     app.run(host='0.0.0.0', port=5001)
