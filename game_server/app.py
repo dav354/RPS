@@ -78,22 +78,16 @@ def get_system_stats():
     cpu = psutil.cpu_percent(interval=None)
     vm = psutil.virtual_memory()
     ram_str = f"{vm.used // (1024*1024)}MB / {vm.total // (1024*1024)}MB"
+
     cpu_temp = 0.0
-    try:
-        temps = psutil.sensors_temperatures()
-        if temps:
-            for label_list in temps.values():
-                for sensor in label_list:
-                    if "cpu" in sensor.label.lower() or "core" in sensor.label.lower() or "thermal" in sensor.label.lower():
-                        cpu_temp = sensor.current
-                        break
-                if cpu_temp != 0.0:
-                    break
-    except AttributeError:
-        pass
-    except Exception as e:
-        log(f"Error getting CPU temp: {e}")
+    temps = psutil.sensors_temperatures()
+    for label in ("cpu_thermal", "cpu-thermal", "coretemp"):
+        if label in temps and temps[label]:
+            cpu_temp = temps[label][0].current
+            break
+
     return cpu, ram_str, round(cpu_temp, 1)
+
 
 def run_inference(coords_normalized_scaled):
     if not TPU_OK or interpreter is None or input_details is None or output_details is None:
