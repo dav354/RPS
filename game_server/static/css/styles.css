@@ -144,3 +144,25 @@ body.dark-theme #confidence {
         flex-direction: column;
     }
 }
+
+/* === Game Info Alignment (NEW) === */
+.info-line {
+    display: grid;
+    /* Creates 3 columns: left, separator, right */
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    /* Adjust gap as needed */
+    gap: 0.75em;
+}
+
+.info-line .left {
+    text-align: right;
+}
+
+.info-line .right {
+    text-align: left;
+}
+
+.info-line .separator {
+    text-align: center;
+}
