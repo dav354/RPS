@@ -147,8 +147,8 @@ def _get_display_frame():
     return True, cv2.flip(frame, 1)
 
 def _process_hand_gestures(rgb_frame):
-    """Processes RGB frame for hand gestures using MediaPipe and TPU inference."""
     gesture, confidence, infer_ms = "No Hand", 0.0, 0.0
+    landmark_pts = None
     results = mp_hands.process(rgb_frame)
 
     if results.multi_hand_landmarks:
@@ -181,7 +181,7 @@ def _process_hand_gestures(rgb_frame):
         else:
             gesture = "Inference Error"
             
-    return gesture, confidence, infer_ms
+    return gesture, confidence, infer_ms, landmark_pts
 
 def _check_and_finalize_round():
     """Checks if gesture collection is done and finalizes the round."""
@@ -198,14 +198,14 @@ def generate_frames():
     while True:
         frame_ok, frame = _get_display_frame()
 
-        if not frame_ok: # An error frame was returned by _get_display_frame
-            ok_enc, buf = cv2.imencode(".jpg", frame) # frame here is the error_frame_img
+        if not frame_ok:  # An error frame was returned by _get_display_frame
+            ok_enc, buf = cv2.imencode(".jpg", frame)  # frame here is the error_frame_img
             if ok_enc:
                 yield (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
                 )
-            time.sleep(1) # Wait before next attempt if camera is truly unavailable
+            time.sleep(1)  # Wait before next attempt if camera is truly unavailable
             continue
 
         current_time = time.time()
@@ -217,6 +217,7 @@ def generate_frames():
         gesture = "N/A"
         confidence = 0.0
         infer_ms = 0.0
+        landmark_pts = None  # NEW: default to None
 
         if not TPU_OK:
             cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
@@ -224,14 +225,12 @@ def generate_frames():
             gesture = "TPU Offline"
         elif not gesture_collector.collecting:
             gesture = "Idle"
-        else: # TPU is OK and we are collecting
+        else:  # TPU is OK and we are collecting
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            gesture, confidence, infer_ms = _process_hand_gestures(rgb_frame)
+            gesture, confidence, infer_ms, landmark_pts = _process_hand_gestures(rgb_frame)  # UPDATED
+            if landmark_pts is not None:
+                draw_landmarks(frame, landmark_pts, frame.shape[1], frame.shape[0])  # DRAW!
             _check_and_finalize_round()
-            # If you want to draw landmarks from draw_landmarks, call it here, passing frame and landmark_pts
-            # e.g., if _process_hand_gestures returned landmark_pts:
-            # if landmark_pts is not None: draw_landmarks(frame, landmark_pts, frame.shape[1], frame.shape[0])
-
 
         latest_stats.update({
             "gesture": gesture,
@@ -254,6 +253,7 @@ def generate_frames():
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
+
 
 # === Routes ===
 @app.route("/")
