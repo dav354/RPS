@@ -105,19 +105,30 @@
     let pollInterval;
 
     async function fetchStats() {
-      const res = await fetch("/gesture_data");
+      const res = await fetch('/gesture_data');
       const s = await res.json();
+
       const tpuIndicator = document.getElementById('tpu-indicator');
-      tpuIndicator.innerHTML = (s.tpu && s.camera) ? "" :
-        `<span class="status-dot pulse" style="color:#e53935;">●</span>`;
+      if (s.tpu && s.camera) {
+        tpuIndicator.innerHTML = "";
+        tpuIndicator.title = "";
+      } else {
+        let reason = (!s.tpu && !s.camera)
+          ? "TPU and Camera not available"
+          : (!s.tpu ? "TPU not available" : "Camera not available");
+        tpuIndicator.innerHTML = `<span class="status-dot pulse" style="color:#e53935;">●</span>`;
+        tpuIndicator.title = reason;
+      }
+
       document.getElementById('gesture').innerText = s.gesture;
       document.getElementById('confidence').innerText = s.confidence;
       document.getElementById('fps').innerText = s.fps;
       document.getElementById('infer').innerText = s.inference_ms;
       document.getElementById('cpu').innerText = s.cpu;
       document.getElementById('ram').innerText = s.ram;
-      document.getElementById('cpu_temp').innerText = s.cpu_temp;
+      document.getElementById('cpu_temp').innerText = s.cpu_temp || 'N/A';
     }
+
 
     async function toggleGame() {
       if (gameActive) {
