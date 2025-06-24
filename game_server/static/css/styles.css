@@ -1,20 +1,4 @@
-/* Dark‑mode toggle icon */
-.dark-toggle {
-    cursor: pointer;
-    color: white;
-    font-size: 1.5rem;
-    line-height: 1.5rem;
-    margin-right: 1rem;
-}
-
-/* Responsive */
-@media (max-width: 800px) {
-    .stats-card {
-        flex: 1 1 100%;
-    }
-}
-
-/* Dark theme overrides */
+/* === Global Dark Mode === */
 body.dark-theme {
     background: #212121 !important;
     color: #fff !important;
@@ -34,73 +18,37 @@ body.dark-theme .nav-wrapper {
     background-color: #333 !important;
 }
 
+/* === Navbar === */
 nav,
 .nav-wrapper {
     background-color: #1976d2 !important;
 }
 
-body.dark-theme nav,
-body.dark-theme .nav-wrapper {
-    background-color: #333 !important;
-}
-
-
-/* Full‑width container */
-.container-fluid {
-    padding: 0 10px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* Video always max size */
-.video-stream img {
-    width: 100%;
-    height: auto;
-    max-height: calc(100vh - 220px);
-    object-fit: cover;
-    margin-top: 15px;
-}
-
-/* Stats row */
-.stats-row {
+.nav-icons {
     display: flex;
-    flex-wrap: wrap;
-    margin-top: 16px;
-    gap: 16px;
-    align-items: stretch;
-    /* stretch all cards to same height */
-}
-
-.stats-card {
-    flex: 1 1 280px;
-    display: flex;
-    flex-direction: column;
-}
-
-.stats-card .card {
+    align-items: center;
     height: 100%;
-    /* card fills its column */
 }
 
-.stats-card .card-content {
-    flex: 1;
+.nav-icons li {
+    display: flex;
+    align-items: center;
+    height: 100%;
 }
 
-/* Emphasize gesture & confidence */
-#gesture,
-#confidence {
-    font-size: 1.3rem;
-    font-weight: 500;
-    color: #e9ba20;
+.nav-arm-btn {
+    cursor: pointer;
+    font-size: 2.1em;
+    color: #38bd04;
+    transition: color 0.2s;
+    margin: 0 1rem;
 }
 
-@media (max-width: 800px) {
-    .stats-card {
-        flex: 1 1 100%;
-    }
+.nav-arm-btn.armed {
+    color: #fa0505;
 }
 
-/* Dark mode toggle icon */
+/* === Dark Mode Toggle Icon === */
 .dark-toggle {
     cursor: pointer;
     color: white;
@@ -109,24 +57,33 @@ body.dark-theme .nav-wrapper {
     margin-right: 1rem;
 }
 
-/* Headers and keys bold */
-.card-title,
-.stats-card .card-content p strong {
-    font-weight: 700;
-}
-
+/* === Video Stream === */
 #camera-stream {
     width: 100%;
     max-width: 640px;
     aspect-ratio: 4/3;
     height: auto;
     display: block;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 15px auto 0;
     background: #222;
     border-radius: 8px;
 }
 
+/* === Gesture Display === */
+#gesture,
+#confidence {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #e9ba20;
+}
+
+/* === Cards === */
+.card-title,
+.card-content p strong {
+    font-weight: 700;
+}
+
+/* === TPU/Camera Status Dot === */
 .status-dot {
     font-size: 2.1em;
 }
@@ -136,79 +93,38 @@ body.dark-theme .nav-wrapper {
 }
 
 @keyframes pulse-red {
-    0% {
+
+    0%,
+    100% {
         opacity: 1;
     }
 
     50% {
         opacity: 0.3;
     }
-
-    100% {
-        opacity: 1;
-    }
 }
 
-.center-row {
-    display: flex;
-    align-items: center;
-}
-
-@media (max-width: 992px) {
-    .row {
-        flex-direction: column !important;
-        align-items: stretch !important;
-    }
-
-    .camera-vertical-center {
-        align-items: flex-start;
-        /* Or center, if you want vertical centering in mobile too */
-        height: auto;
-    }
-}
-
-.row {
-    display: flex;
-    align-items: stretch;
-}
-
-.camera-col {
+/* === Game Info Below Stream === */
+.game-info-flex {
     display: flex;
     justify-content: center;
-    padding: 0;
-}
-
-.camera-vertical-center {
-    display: flex;
     align-items: center;
-    height: 100%;
-    width: 100%;
+    gap: 16px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-top: 8px;
 }
 
-.nav-icons {
+.game-info-flex>div {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    /* Vertically center children (the li’s) */
-    height: 100%;
-    /* Make sure it takes full nav height */
+    gap: 8px;
 }
 
-.nav-icons li {
-    display: flex;
-    align-items: center;
-    /* Center each icon or span inside its li */
-    height: 100%;
-}
-
-.nav-arm-btn {
-    cursor: pointer;
-    font-size: 2.1em;
-    color: #38bd04;
-    transition: color 0.2s;
-    margin-right: 1rem;
-    margin-left: 1rem;
-}
-
-.nav-arm-btn.armed {
-    color: #fa0505;
+/* === Responsive Fixes === */
+@media (max-width: 800px) {
+    .game-info-flex {
+        flex-direction: column;
+    }
 }
