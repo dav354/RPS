@@ -34,7 +34,7 @@ def disable_autonomous_behaviors():
 # === Camera Setup ===
 camera_name = "flask_cam"
 camera_index = 0  # top camera
-resolution = 2    # 640x480
+resolution = 1    # 640x480
 color_space = 13  # BGR
 fps = 30
 
