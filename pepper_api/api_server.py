@@ -29,7 +29,7 @@ def disable_autonomous_behaviors():
         motion_service.setStiffnesses("Body", 1.0)
         print("[🔧] Autonomous behaviors disabled.")
     except Exception as e:
-        print("[⚠️] Error disabling autonomous life:", e
+        print("[⚠️] Error disabling autonomous life:", e)
 
 # === Camera Setup ===
 camera_name = "flask_cam"
