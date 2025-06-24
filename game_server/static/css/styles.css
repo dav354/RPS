@@ -1,15 +1,34 @@
-/* === Global Dark Mode === */
+/* === Base Theme (Light Mode) === */
+body {
+    background: #fff;
+    color: #000;
+}
+
+nav,
+.nav-wrapper {
+    background-color: #1976d2 !important;
+}
+
+.card {
+    background: #f5f5f5;
+    color: #000;
+}
+
+.card-title,
+.card-content p strong {
+    font-weight: 700;
+}
+
+#gesture,
+#confidence {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #e9ba20;
+}
+
+/* === Dark Mode === */
 body.dark-theme {
     background: #212121 !important;
-    color: #fff !important;
-}
-
-body.dark-theme .card {
-    background: #424242 !important;
-}
-
-body.dark-theme .card .card-content,
-body.dark-theme .card .card-title {
     color: #fff !important;
 }
 
@@ -18,12 +37,23 @@ body.dark-theme .nav-wrapper {
     background-color: #333 !important;
 }
 
-/* === Navbar === */
-nav,
-.nav-wrapper {
-    background-color: #1976d2 !important;
+body.dark-theme .card {
+    background: #424242 !important;
+    color: #fff !important;
 }
 
+body.dark-theme .card .card-content,
+body.dark-theme .card .card-title {
+    color: #fff !important;
+}
+
+body.dark-theme #gesture,
+body.dark-theme #confidence {
+    color: #ffe082;
+    /* gold-yellow */
+}
+
+/* === Navbar icons === */
 .nav-icons {
     display: flex;
     align-items: center;
@@ -69,21 +99,25 @@ nav,
     border-radius: 8px;
 }
 
-/* === Gesture Display === */
-#gesture,
-#confidence {
-    font-size: 1.3rem;
+/* === Game Info Box === */
+.game-info-flex {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    font-size: 1.2rem;
     font-weight: 500;
-    color: #e9ba20;
+    margin-top: 8px;
 }
 
-/* === Cards === */
-.card-title,
-.card-content p strong {
-    font-weight: 700;
+.game-info-flex>div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
-/* === TPU/Camera Status Dot === */
+/* === Status Dot for TPU/Camera === */
 .status-dot {
     font-size: 2.1em;
 }
@@ -104,25 +138,7 @@ nav,
     }
 }
 
-/* === Game Info Below Stream === */
-.game-info-flex {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    font-size: 1.2rem;
-    font-weight: 500;
-    margin-top: 8px;
-}
-
-.game-info-flex>div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-/* === Responsive Fixes === */
+/* === Responsive === */
 @media (max-width: 800px) {
     .game-info-flex {
         flex-direction: column;
