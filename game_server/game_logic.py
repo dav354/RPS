@@ -57,6 +57,11 @@ def call_robot_speech_api(text_to_speak: str):
         print(f"[❌🤖 API Error] Could not call speech API with text '{text_to_speak}': {e}")
         return False
 
+def prepare_round():
+    # Robot says "play" when a new round starts
+    call_robot_speech_api("Play!")
+    call_robot_gesture_api("swing")
+
 def reset_game():
     global _score, _game_over, _last_result_time
     _score = {"player": 0, "computer": 0}
@@ -88,9 +93,7 @@ def play_round(player_move: str) -> dict:
         game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s"
         return game_state
 
-    # Robot says "play" when a new round starts
-    call_robot_speech_api("Play!")
-    call_robot_gesture_api("swing")
+
 
     if player_move not in {"rock", "paper", "scissors"}:
         game_state.update({

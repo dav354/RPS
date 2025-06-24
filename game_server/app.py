@@ -7,6 +7,7 @@ import psutil
 import mediapipe as mp
 from flask import Flask, Response, render_template, jsonify
 from collections import deque
+from game_logic import prepare_round
 
 # Assuming these are your existing utility modules
 from draw import draw_landmarks # This import is present, but draw_landmarks is not explicitly called in the refactored _process_hand_gestures. You might want to add it back there if needed.
@@ -168,6 +169,7 @@ def _process_hand_gestures(rgb_frame):
                 gesture = current_gesture
                 confidence = conf
                 if gesture_collector.collecting:
+                    prepare_round()
                     gesture_collector.add_gesture(current_gesture)
             else:
                 gesture = "Unknown"
