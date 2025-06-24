@@ -161,10 +161,20 @@
             document.getElementById("match").innerText = `Pepper vs Player (Round ${r}/3)`;
             document.getElementById("score").innerText = `${c} : ${p}`;
             document.getElementById("result").innerText = `${state.computer_move} : ${state.player_move}`;
+
             if (state.result.includes("Game Over")) {
               clearInterval(pollInterval);
               gameActive = false;
               updateButton();
+
+              // Delay reset for 5 seconds (5000ms)
+              setTimeout(() => {
+                fetch("/reset_game").then(() => {
+                  document.getElementById("match").innerText = `Pepper vs Player (Round 1/3)`;
+                  document.getElementById("score").innerText = `0 : 0`;
+                  document.getElementById("result").innerText = `… : …`;
+                });
+              }, 5000);
             }
           });
       }, 1500);
