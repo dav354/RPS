@@ -31,12 +31,30 @@ def call_robot_gesture_api(gesture_name: str):
     """
     url = f"{ROBOT_API_BASE_URL}/gesture/{gesture_name.lower()}"
     try:
-        response = requests.get(url, timeout=1) # 5-second timeout
+        response = requests.get(url, timeout=1) # 1-second timeout
         response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
         print(f"[🤖 API] Successfully called gesture '{gesture_name}': {response.text}")
         return True
     except requests.exceptions.RequestException as e:
         print(f"[❌🤖 API Error] Could not call gesture '{gesture_name}': {e}")
+        return False
+
+def call_robot_speech_api(text_to_speak: str):
+    """
+    Makes an HTTP GET request to the robot's speech API endpoint.
+    The robot will say the provided text.
+    """
+    # URL encode the text to ensure special characters are handled correctly
+    import urllib.parse
+    encoded_text = urllib.parse.quote(text_to_speak)
+    url = f"{ROBOT_API_BASE_URL}/say/{encoded_text}"
+    try:
+        response = requests.get(url, timeout=2) # 2-second timeout for speech
+        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+        print(f"[🤖 API] Successfully called speech API with text: '{text_to_speak}': {response.text}")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"[❌🤖 API Error] Could not call speech API with text '{text_to_speak}': {e}")
         return False
 
 def reset_game():
@@ -51,6 +69,8 @@ def reset_game():
         "last_played": 0,
         "score": _score.copy()
     })
+    # Robot says "Game reset" or similar when game is reset
+    call_robot_speech_api("Game reset. Let's play again!")
 
 
 def play_round(player_move: str) -> dict:
@@ -60,26 +80,42 @@ def play_round(player_move: str) -> dict:
 
     if _game_over:
         game_state["result"] = "Game over. Please reset to play again."
+        # Robot can announce game over if it was already over
+        call_robot_speech_api("Game over. Please reset to play again.")
         return game_state
 
     if now - _last_result_time < COOLDOWN:
-        game_state["result"] = f"Cooldown... wait {COOLDOWN - (now - _last_result_time):.1f}s"
+        cooldown_remaining = COOLDOWN - (now - _last_result_time)
+        game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s"
+        # Robot announces cooldown
+        call_robot_speech_api(f"Cooldown. Please wait {int(cooldown_remaining)} seconds.")
         return game_state
 
+    # Robot says "play" when a new round starts
+    call_robot_speech_api("Play!")
+    call_robot_gesture_api("swing")
+
     if player_move not in {"rock", "paper", "scissors"}:
-        return {
+        game_state.update({
             "error": "Invalid move",
             "player_move": player_move,
             "computer_move": "none",
             "result": "Invalid move",
             "score": _score.copy(),
             "last_played": now
-        }
+        })
+        call_robot_speech_api("Invalid move. Please choose rock, paper, or scissors.")
+        return game_state
 
     computer_move = random.choice(["rock", "paper", "scissors"])
+    # Robot announces its chosen move
+    call_robot_speech_api(computer_move)
+    call_robot_gesture_api(computer_move)
+
 
     if player_move == computer_move:
         result = "Draw"
+        call_robot_speech_api("try again") # Robot says "try again" for a draw
     elif (player_move, computer_move) in [
         ("rock", "scissors"),
         ("paper", "rock"),
@@ -87,15 +123,13 @@ def play_round(player_move: str) -> dict:
     ]:
         result = "You Win!"
         _score["player"] += 1
+        call_robot_speech_api("you win") # Robot says "you win"
     else:
         result = "Computer Wins!"
         _score["computer"] += 1
+        call_robot_speech_api("you lose") # Robot says "you lose"
 
     _last_result_time = now
-
-    # --- API call for the robot's gesture based on computer_move ---
-    call_robot_gesture_api(computer_move)
-    # -------------------------------------------------------------
 
     game_state.update({
         "player_move": player_move,
@@ -107,31 +141,15 @@ def play_round(player_move: str) -> dict:
 
     # Siegbedingung prüfen
     if _score["player"] == 2 or _score["computer"] == 2:
-        game_state["result"] += " 🎉 Game Over!"
+        game_over_message = " 🎉 Game Over!"
+        game_state["result"] += game_over_message
         _game_over = True
+        # Robot announces game over
+        if _score["player"] == 2:
+            call_robot_speech_api("Congratulations! You won the game!")
+        else:
+            call_robot_speech_api("I won the game! Better luck next time.")
+        call_robot_speech_api(game_over_message)
+
 
     return game_state
-
-# --- Example of how to use play_round and see the API call in action ---
-if __name__ == "__main__":
-    print("Starting a test game round...")
-    # This will simulate a player move and trigger the robot gesture API call
-    # You need your robot API running at ROBOT_API_BASE_URL (e.g., http://localhost:5000)
-    # and the /gesture/<gesture_name> endpoint correctly configured.
-    current_game_state = play_round("rock")
-    print(f"Game State after first round: {current_game_state}")
-
-    # Wait for cooldown
-    time.sleep(COOLDOWN)
-
-    current_game_state = play_round("paper")
-    print(f"Game State after second round: {current_game_state}")
-
-    # You could also call the 'swing' gesture directly from wherever you 'start' a round
-    # For example, if you have a function that initiates the round from an external call:
-    # def start_new_game_round():
-    #     print("New game round initiated!")
-    #     call_robot_gesture_api("swing")
-    #     reset_game() # Or whatever game setup you do
-    #
-    # start_new_game_round()
