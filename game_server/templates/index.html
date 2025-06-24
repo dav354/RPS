@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,7 +8,14 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <script>
+    // Apply dark theme immediately on load to prevent flash
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      document.documentElement.classList.add('dark-theme');
+    }
+  </script>
 </head>
+
 
 <body>
   <nav>
@@ -69,9 +77,28 @@
     </div>
   </div>
 
-  <!-- JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
   <script>
+    const body = document.body;
+    const darkToggle = document.getElementById('darkModeToggle');
+
+    // Dark mode apply on load
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      body.classList.add('dark-theme');
+      if (darkToggle) darkToggle.textContent = 'brightness_7';
+    } else {
+      if (darkToggle) darkToggle.textContent = 'brightness_2';
+    }
+
+    // Toggle dark mode
+    if (darkToggle) {
+      darkToggle.addEventListener('click', () => {
+        const isDark = body.classList.toggle('dark-theme');
+        localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        darkToggle.textContent = isDark ? 'brightness_7' : 'brightness_2';
+      });
+    }
+
     const playBtn = document.getElementById("playBtn");
     const playIcon = document.getElementById("playBtnIcon");
     let gameActive = false;
@@ -139,5 +166,5 @@
     playBtn.addEventListener("click", toggleGame);
     setInterval(fetchStats, 2000);
   </script>
-</body>
+
 </html>
