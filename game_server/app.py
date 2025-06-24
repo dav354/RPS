@@ -2,7 +2,6 @@
 import cv2
 import time
 import os
-import requests
 import numpy as np
 import psutil
 import mediapipe as mp
