@@ -1,10 +1,10 @@
 import os
 import random
 import time
-import requests # Import the requests library for making HTTP calls
+import requests
+import threading
 
 # === Robot API Configuration ===
-# IMPORTANT: Change this to your robot's actual API base URL
 ROBOT_API_BASE_URL = os.environ.get("PEPPER_IP") # Assuming robot API is on this address
 
 # === Konfiguration ===
@@ -24,41 +24,51 @@ game_state = {
     "score": _score.copy()
 }
 
-def call_robot_gesture_api(gesture_name: str):
-    """
-    Makes an HTTP GET request to the robot's gesture API endpoint.
-    This function is now part of your game logic file.
-    """
+# <<< CHANGED: Helper function to run network calls in a thread >>>
+def _run_in_thread(target, args=()):
+    """Starts a function in a daemon thread, so it doesn't block."""
+    thread = threading.Thread(target=target, args=args)
+    thread.daemon = True # Allows main program to exit even if threads are running
+    thread.start()
+
+def _make_gesture_api_call(gesture_name: str):
+    """The actual blocking HTTP call for gestures."""
     url = f"{ROBOT_API_BASE_URL}/gesture/{gesture_name.lower()}"
     try:
         response = requests.get(url, timeout=1) # 1-second timeout
         response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
         print(f"[🤖 API] Successfully called gesture '{gesture_name}': {response.text}")
-        return True
     except requests.exceptions.RequestException as e:
         print(f"[❌🤖 API Error] Could not call gesture '{gesture_name}': {e}")
-        return False
 
-def call_robot_speech_api(text_to_speak: str):
+def call_robot_gesture_api(gesture_name: str):
     """
-    Makes an HTTP POST request to the robot's speech API endpoint with a JSON body.
-    The robot will say the provided text.
+    Makes a NON-BLOCKING HTTP GET request to the robot's gesture API endpoint.
     """
+    _run_in_thread(_make_gesture_api_call, (gesture_name,))
+
+
+def _make_speech_api_call(text_to_speak: str):
+    """The actual blocking HTTP call for speech."""
     url = f"{ROBOT_API_BASE_URL}/say"
     headers = {'Content-Type': 'application/json'}
     payload = {'text': text_to_speak}
     try:
-        # Use requests.post to send a POST request with a JSON payload
         response = requests.post(url, json=payload, headers=headers, timeout=2) # 2-second timeout for speech
-        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status() # Raise an HTTPError for bad responses
         print(f"[🤖 API] Successfully called speech API with text: '{text_to_speak}': {response.text}")
-        return True
     except requests.exceptions.RequestException as e:
         print(f"[❌🤖 API Error] Could not call speech API with text '{text_to_speak}': {e}")
-        return False
+
+def call_robot_speech_api(text_to_speak: str):
+    """
+    Makes a NON-BLOCKING HTTP POST request to the robot's speech API endpoint.
+    """
+    _run_in_thread(_make_speech_api_call, (text_to_speak,))
+
+# --- The rest of your game_logic.py remains the same ---
 
 def prepare_round():
-    # Robot says "play" when a new round starts
     call_robot_speech_api("Play!")
     call_robot_gesture_api("swing")
 
@@ -74,7 +84,6 @@ def reset_game():
         "last_played": 0,
         "score": _score.copy()
     })
-    # Robot says "Game reset" or similar when game is reset
     call_robot_speech_api("Game reset. Let's play again!")
 
 
@@ -85,15 +94,12 @@ def play_round(player_move: str) -> dict:
 
     if _game_over:
         game_state["result"] = "Game over. Please reset to play again."
-        # Robot can announce game over if it was already over
         return game_state
 
     if now - _last_result_time < COOLDOWN:
         cooldown_remaining = COOLDOWN - (now - _last_result_time)
         game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s"
         return game_state
-
-
 
     if player_move not in {"rock", "paper", "scissors"}:
         game_state.update({
@@ -108,14 +114,12 @@ def play_round(player_move: str) -> dict:
         return game_state
 
     computer_move = random.choice(["rock", "paper", "scissors"])
-    # Robot announces its chosen move
     call_robot_speech_api(computer_move)
     call_robot_gesture_api(computer_move)
 
-
     if player_move == computer_move:
         result = "Draw"
-        call_robot_speech_api("try again") # Robot says "try again" for a draw
+        call_robot_speech_api("try again")
     elif (player_move, computer_move) in [
         ("rock", "scissors"),
         ("paper", "rock"),
@@ -123,11 +127,11 @@ def play_round(player_move: str) -> dict:
     ]:
         result = "You Win!"
         _score["player"] += 1
-        call_robot_speech_api("you win") # Robot says "you win"
+        call_robot_speech_api("you win")
     else:
         result = "Computer Wins!"
         _score["computer"] += 1
-        call_robot_speech_api("you lose") # Robot says "you lose"
+        call_robot_speech_api("you lose")
 
     _last_result_time = now
 
@@ -139,17 +143,14 @@ def play_round(player_move: str) -> dict:
         "score": _score.copy()
     })
 
-    # Siegbedingung prüfen
     if _score["player"] == 2 or _score["computer"] == 2:
         game_over_message = " 🎉 Game Over!"
         game_state["result"] += game_over_message
         _game_over = True
-        # Robot announces game over
         if _score["player"] == 2:
             call_robot_speech_api("Congratulations! You won the game!")
         else:
             call_robot_speech_api("I won the game! Better luck next time.")
         call_robot_speech_api(game_over_message)
-
 
     return game_state
