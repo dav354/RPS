@@ -71,7 +71,7 @@ def do_rock():
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
                              [1.0, 0.5, 0.0, 0.0], 0.2)
-    time.sleep(2)
+    time.sleep(4)
     go_to_neutral()
 
 def do_paper():
@@ -82,7 +82,7 @@ def do_paper():
     ], [
         0.8, 0.0, 1.0, -1.2, 1.0  # arm straight, wrist neutral, hand open
     ], 0.2)
-    time.sleep(2)
+    time.sleep(4)
     go_to_neutral()
 
 def do_scissors():
@@ -93,7 +93,7 @@ def do_scissors():
     ], [
         0.8, 0.0, 1.0, 0.0, 1.0  # arm straight, wrist neutral, hand open
     ], 0.2)
-    time.sleep(2)
+    time.sleep(4)
     go_to_neutral()
 
 
