@@ -223,8 +223,6 @@ def generate_frames():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
             gesture = "TPU Offline"
         elif not gesture_collector.collecting:
-            cv2.putText(frame, "IDLE - PRESS START ROUND", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 200, 0), 2, cv2.LINE_AA)
             gesture = "Idle"
         else: # TPU is OK and we are collecting
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -246,9 +244,6 @@ def generate_frames():
             "tpu": TPU_OK,
             "camera": cap.isOpened(),
         })
-
-        cv2.putText(frame, f"Gesture: {gesture} ({confidence:.2f})", (10, 60), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
 
         ok_enc, buf = cv2.imencode(".jpg", frame)
         if not ok_enc:
