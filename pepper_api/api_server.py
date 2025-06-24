@@ -20,6 +20,8 @@ posture_service = session.service("ALRobotPosture")
 tts_service = session.service("ALTextToSpeech")
 asr_service = session.service("ALSpeechRecognition")
 memory_service = session.service("ALMemory")
+life_service = session.service("ALAutonomousLife")
+awareness_service = session.service("ALBasicAwareness")
 
 # === Disable Autonomous Movements ===
 def disable_autonomous_behaviors():
