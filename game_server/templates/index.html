@@ -157,9 +157,11 @@
       if (isArmed) {
         armToggle.textContent = 'stop';
         armToggle.classList.add('armed');
+        startRound();
       } else {
         armToggle.textContent = 'play_arrow';
         armToggle.classList.remove('armed');
+        resetGame();
       }
     });
 
