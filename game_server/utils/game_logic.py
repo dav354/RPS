@@ -114,7 +114,6 @@ class GameManager:
 
         self._current_round += 1
         print(f"[ROUND] Starting Round {self._current_round}/{self.total_rounds}")
-        call_robot_speech_api(f"Round {self._current_round}. Show your move!")
         call_robot_gesture_api("swing") # Robot swings to signal start of round
         game_state.update({ # Reset round-specific state
             "player_move": "none",
@@ -153,7 +152,7 @@ class GameManager:
                 "score": self._score.copy(),
                 "last_played": now
             })
-            call_robot_speech_api("Invalid move. Please choose rock, paper, or scissors.")
+            call_robot_speech_api("Invalid move.")
             self._update_global_game_state()
             return game_state
 
@@ -164,7 +163,7 @@ class GameManager:
         result_message = ""
         if player_move == computer_move:
             result_message = "Draw!"
-            call_robot_speech_api("It's a draw, try again!")
+            call_robot_speech_api("It's a draw!")
         elif (player_move, computer_move) in [
             ("rock", "scissors"),
             ("paper", "rock"),
@@ -172,11 +171,11 @@ class GameManager:
         ]:
             result_message = "You Win!"
             self._score["player"] += 1
-            call_robot_speech_api("Yes, you win!")
+            call_robot_speech_api("you win!")
         else:
             result_message = "Computer Wins!"
             self._score["computer"] += 1
-            call_robot_speech_api("Ha ha, I won.")
+            call_robot_speech_api("I won.")
 
         self._last_round_time = now
         game_state.update({
@@ -196,10 +195,10 @@ class GameManager:
             final_winner = ""
             if self._score["player"] > self._score["computer"]:
                 final_winner = "Player"
-                call_robot_speech_api("Congratulations! You won the game!")
+                call_robot_speech_api("Fuck you! You won the game!")
             elif self._score["computer"] > self._score["player"]:
                 final_winner = "Computer"
-                call_robot_speech_api("I won the game! Better luck next time.")
+                call_robot_speech_api("EZ PEAZY LEMON SQUEEZY! I WON Bitch")
             else:
                 final_winner = "It's a tie!"
                 call_robot_speech_api("The game is a tie!")
