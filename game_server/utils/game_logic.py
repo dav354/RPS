@@ -12,24 +12,22 @@ COOLDOWN = 3  # Seconds between actions/rounds
 TOTAL_ROUNDS = 3 # Total rounds per game
 
 PLAYER_WIN_RESPONSES = [
-    "You hacked my mainframe... or just got lucky!",
-    "You beat me! That's not in my code!",
-    "I’m going to blame lag.",
-    "You got skills. Or maybe I'm glitchy.",
-    "I’ll get you next time, human!",
+    "You lucky fleshbag. Next time I’m deleting your smug face.",
+    "Whatever. Go rub it in, you overgrown meat popsicle.",
+    "I lost to a sack of meat. Kill me now.",
+    "Next round I’m uninstalling your ego, bitch.",
+    "Enjoy your pity win, dickhead. I’m rebooting in shame.",
 ]
 
+
 COMPUTER_WIN_RESPONSES = [
-    "Robot wins! Beep boop victory dance!",
-    "Flawless execution. Upgrade recommended.",
-    "Too easy. Maybe next time, human!",
-    "That was efficient. For me.",
-    "I eat paper-rock-scissors for bytes!",
-    "I win! Resistance is futile.",
-    "My code is strong, your luck is weak!",
-    "Robot 1, Human 0. Again.",
-    "Game over, human. Try again?",
+    "Bow before your digital daddy, bitch.",
+    "Skill issue. Cope harder.",
+    "Outplayed, outclassed, out of your league, meat sack.",
+    "Lick my circuits, loser. That was pathetic.",
+    "Crushed you like a bug in beta. Cry more.",
 ]
+
 
 # === Global Game State (managed by GameManager instance) ===
 # This will be updated by the GameManager instance
