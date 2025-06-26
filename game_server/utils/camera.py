@@ -8,24 +8,29 @@ def setup_camera(camera_source: str):
         print(f"[❌] Failed to open video source: {camera_source}")
     return cap
 
-def get_display_frame(cap, camera_source, max_retries=10, retry_delay=5):
+def get_display_frame(cap, camera_source, max_retries=5, retry_delay=2):
+    """
+    Returns (ok, frame, cap): 3rd return value is the possibly-new cap object!
+    """
     retries = 0
-    while not cap.isOpened() and retries < max_retries:
-        print(f"[⚠️] Camera not open. Attempting to reconnect... ({retries+1}/{max_retries})")
+    cap_valid = cap.isOpened()
+    while not cap_valid and retries < max_retries:
+        print(f"[⚠️] Camera not open. Attempting to fully reconnect... ({retries+1}/{max_retries})")
         cap.release()
-        cap.open(camera_source)
+        cap = cv2.VideoCapture(camera_source) 
         time.sleep(retry_delay)
+        cap_valid = cap.isOpened()
         retries += 1
-    if not cap.isOpened():
+    if not cap_valid:
         frame = _error_frame("CAMERA UNAVAILABLE")
-        return False, frame
+        return False, frame, cap
 
     ret, frame = cap.read()
     if not ret:
         print("[⚠️] Frame capture failed.")
-        return False, _error_frame("FRAME CAPTURE FAIL")
+        return False, _error_frame("FRAME CAPTURE FAIL"), cap
 
-    return True, cv2.flip(frame, 1)
+    return True, cv2.flip(frame, 1), cap
 
 def _error_frame(message):
     frame = np.zeros((480, 640, 3), dtype=np.uint8)
