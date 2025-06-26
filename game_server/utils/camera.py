@@ -2,13 +2,23 @@ import cv2
 import numpy as np
 import time
 
-def setup_camera(camera_source: str):
+MAX_RETRIES = 10
+RETRY_DELAY = 5
+
+def setup_camera(camera_source: str, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     cap = cv2.VideoCapture(camera_source)
+    retries = 0
+    while not cap.isOpened() and retries < max_retries:
+        print(f"[❌] Failed to open video source: {camera_source} (retry {retries+1}/{max_retries})")
+        cap.release()
+        cap = cv2.VideoCapture(camera_source)
+        time.sleep(retry_delay)
+        retries += 1
     if not cap.isOpened():
-        print(f"[❌] Failed to open video source: {camera_source}")
+        print(f"[❌] Could not open camera after {max_retries} attempts!")
     return cap
 
-def get_display_frame(cap, camera_source, max_retries=5, retry_delay=2):
+def get_display_frame(cap, camera_source, max_retries=MAX_RETRIES, retry_delay=RETRY_DELAY):
     """
     Returns (ok, frame, cap): 3rd return value is the possibly-new cap object!
     """
