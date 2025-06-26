@@ -7,7 +7,7 @@ import cv2
 import mediapipe as mp
 
 from utils.game_logic import prepare_round, game_state, play_round, reset_game
-from utils.draw import draw_landmarks # Make sure this is imported
+from utils.draw import draw_landmarks
 from utils.gesture_buffer import GestureCollector
 
 from utils.camera import setup_camera, get_display_frame
@@ -118,7 +118,7 @@ def _process_hand_gestures(rgb_frame):
     if results.multi_hand_landmarks:
         hand_landmarks = results.multi_hand_landmarks[0]
 
-        # --- Extracting x, y, and z coordinates for the model ---
+        # --- KEY CHANGE: Extracting x, y, and z coordinates ---
         coords_3d = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark], dtype=np.float32)
 
         # Apply 3D alignment, mirroring the training script
@@ -135,8 +135,7 @@ def _process_hand_gestures(rgb_frame):
         # Flatten the 3D coordinates for the model input
         flat_coords = coords_normalized.flatten()
 
-        # --- For drawing, extract and scale original 2D (x,y) from the raw landmarks ---
-        # MediaPipe provides normalized (0-1) x,y, so multiply by frame dimensions for pixel coords
+        # For drawing, you might want to use the original 2D (x,y) from the raw landmarks
         landmark_pts_2d = np.array([[lm.x * rgb_frame.shape[1], lm.y * rgb_frame.shape[0]] for lm in hand_landmarks.landmark], dtype=np.int32)
 
 
@@ -161,7 +160,7 @@ def _process_hand_gestures(rgb_frame):
         else:
             gesture = "Inference Error"
 
-    return gesture, confidence, infer_ms, landmark_pts_2d # Ensure landmark_pts_2d is returned
+    return gesture, confidence, infer_ms, landmark_pts_2d
 
 
 def _check_and_finalize_round():
@@ -183,7 +182,7 @@ def generate_frames():
             if ok_enc:
                 yield (
                         b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\r" + buf.tobytes() + b"\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
                 )
             time.sleep(1)
             continue
@@ -197,7 +196,7 @@ def generate_frames():
         gesture = "N/A"
         confidence = 0.0
         infer_ms = 0.0
-        landmark_pts_to_draw = None # This variable will now correctly hold the 2D points for drawing
+        landmark_pts_to_draw = None # Renamed to avoid confusion with internal 3D coords
 
         if not TPU_OK:
             cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
@@ -207,13 +206,10 @@ def generate_frames():
             gesture = "Idle"
         else:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Assign the returned landmark_pts_2d to our drawing variable
             gesture, confidence, infer_ms, landmark_pts_to_draw = _process_hand_gestures(rgb_frame)
-
-            # --- KEY FIX: Call draw_landmarks with the correct 2D points ---
             if landmark_pts_to_draw is not None:
+                # Pass the original frame dimensions for drawing
                 draw_landmarks(frame, landmark_pts_to_draw, frame.shape[1], frame.shape[0])
-
             _check_and_finalize_round()
 
         latest_stats.update({
@@ -235,7 +231,7 @@ def generate_frames():
 
         yield (
                 b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\r" + buf.tobytes() + b"\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
 
