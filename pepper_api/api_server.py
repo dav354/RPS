@@ -1,221 +1,222 @@
-#!/usr/bin/env python3
-import os
+#!/usr/bin/env python2
+
+import qi
 import time
-import numpy as np
-from flask import Flask, Response, render_template, jsonify
-from collections import deque
 import cv2
-import mediapipe as mp
+import numpy as np
+from flask import Flask, Response, request, jsonify
+import threading
 
-from utils.game_logic import prepare_round, game_state, play_round, reset_game
-from utils.draw import draw_landmarks # This will still draw using X,Y
-from utils.gesture_buffer import GestureCollector
-
-from utils.camera import setup_camera, get_display_frame
-from utils.stats import get_system_stats
-from utils.tpu import load_tpu_model, run_inference # run_inference will be modified
-
-# === Configuration ===
-PEPPER_IP = os.environ.get("PEPPER_IP")
-camera_source = f"{PEPPER_IP}/video_feed"
-label_map = ["none", "rock", "paper", "scissors"]
-gesture_collector = GestureCollector(duration=2.0)
-PREDICTION_HISTORY = deque(maxlen=5)
-
-# === Load TPU ===
-interpreter, TPU_OK = load_tpu_model()
-input_details = interpreter.get_input_details() if interpreter else None
-output_details = interpreter.get_output_details() if interpreter else None
-
-# === Setup camera ===
-cap = setup_camera(camera_source)
-
-# === Setup MediaPipe ===
-mp_hands = mp.solutions.hands.Hands(
-    static_image_mode=False,
-    max_num_hands=1,
-    min_detection_confidence=0.6,
-    min_tracking_confidence=0.6
-)
-
-# === System Stats ===
-latest_stats = {
-    "gesture": "Initializing...",
-    "confidence": 0.0,
-    "fps": 0.0,
-    "cpu": 0.0,
-    "ram": "0MB / 0MB",
-    "inference_ms": 0.0,
-    "cpu_temp": 0.0,
-    "tpu": TPU_OK,
-}
-
-# === Flask App ===
 app = Flask(__name__)
 
+try:
+    session = qi.Session()
+    session.connect("tcp://127.0.0.1:9559")
 
-def log(msg: str):
-    print(msg)
+    video_service = session.service("ALVideoDevice")
+    motion_service = session.service("ALMotion")
+    posture_service = session.service("ALRobotPosture")
+    tts_service = session.service("ALTextToSpeech")
+    asr_service = session.service("ALSpeechRecognition")
+    memory_service = session.service("ALMemory")
+    life_service = session.service("ALAutonomousLife")
+    awareness_service = session.service("BasicAwareness")
+    print("[INFO] Successfully connected to NAOqi services.")
 
-
-def _process_hand_gestures(rgb_frame):
-    gesture, confidence, infer_ms = "No Hand", 0.0, 0.0
-    landmark_pts_2d_for_drawing = None # This will store only x,y for drawing
-    results = mp_hands.process(rgb_frame)
-
-    if results.multi_hand_landmarks:
-        hand_landmarks = results.multi_hand_landmarks[0]
-        # --- MODIFICATION START ---
-        # Extract x, y, and z coordinates
-        landmark_pts_3d = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark], dtype=np.float32)
-        # Store 2D points for drawing only
-        landmark_pts_2d_for_drawing = np.array([[lm.x, lm.y] for lm in hand_landmarks.landmark], dtype=np.float32)
-
-        # Pass the 3D points directly to run_inference.
-        # Preprocessing (alignment, normalization) will now happen inside run_inference.
-        dequantized_preds, current_infer_ms = run_inference(interpreter, input_details, output_details, landmark_pts_3d)
-        # --- MODIFICATION END ---
-        infer_ms = current_infer_ms
-
-        if dequantized_preds is not None:
-            PREDICTION_HISTORY.append(dequantized_preds)
-            avg_pred = np.mean(PREDICTION_HISTORY, axis=0)
-            idx = int(np.argmax(avg_pred))
-            conf = float(avg_pred[idx])
-
-            if conf > 0.75:
-                current_gesture = label_map[idx]
-                gesture = current_gesture
-                confidence = conf
-                if gesture_collector.collecting:
-                    gesture_collector.add_gesture(current_gesture)
-            else:
-                gesture = "Unknown"
-                confidence = conf
-        else:
-            gesture = "Inference Error"
-
-    return gesture, confidence, infer_ms, landmark_pts_2d_for_drawing # Return 2D points for drawing
+except Exception as e:
+    print("[ERROR] Error connecting to NAOqi services:", e)
+    exit(1)
 
 
-def _check_and_finalize_round():
-    if gesture_collector.is_done():
-        final_gesture = gesture_collector.get_most_common()
-        log(f"[🧠] Round decided. Most common gesture: {final_gesture}")
-        play_round(final_gesture)
-        gesture_collector.reset()
+# === Autonomous Behavior Control ===
+def disable_autonomous_behaviors():
+    try:
+        if awareness_service.isAwarenessRunning():
+            awareness_service.stopAwareness()
+            print("[CONFIG] Basic Awareness disabled.")
 
+        if life_service.getState() != "disabled":
+            life_service.setState("disabled")
+            print("[CONFIG] Autonomous Life disabled.")
 
-def generate_frames():
-    prev_time = time.time()
+        motion_service.setStiffnesses("Body", 1.0)
+        print("[CONFIG] Body stiffness set to 1.0.")
 
+    except Exception as e:
+        print("[WARN] Error during autonomous behavior disabling:", e)
+
+# === Camera Setup ===
+camera_name = "flask_cam"
+name_id = None
+def setup_camera():
+    global name_id
+    camera_index = 0  # top camera
+    resolution = 1    # 640x480
+    color_space = 13  # BGR
+    fps = 20 # Lowered FPS slightly for stability
+    try:
+        name_id = video_service.subscribeCamera(camera_name, camera_index, resolution, color_space, fps)
+        print("[INFO] Camera subscribed successfully.")
+    except Exception as e:
+        print("[ERROR] Error subscribing to camera:", e)
+
+def generate_video_stream():
+    if name_id is None:
+        return
     while True:
-        frame_ok, frame = get_display_frame(cap, camera_source)
+        try:
+            image = video_service.getImageRemote(name_id)
+            if image is None:
+                time.sleep(1.0/fps)
+                continue
 
-        if not frame_ok:
-            ok_enc, buf = cv2.imencode(".jpg", frame)
-            if ok_enc:
-                yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
-            time.sleep(1)
-            continue
+            width, height, _, array = image[0], image[1], image[2], image[6]
 
-        current_time = time.time()
-        delta_time = current_time - prev_time
-        fps = 1.0 / delta_time if delta_time > 0 else 0
-        prev_time = current_time
+            img = np.frombuffer(array, dtype=np.uint8).reshape((height, width, 3))
+            ret, jpeg = cv2.imencode('.jpg', img)
+            if not ret:
+                continue
 
-        cpu, ram_str, cpu_temp = get_system_stats()
-        gesture = "N/A"
-        confidence = 0.0
-        infer_ms = 0.0
-        landmark_pts_for_drawing = None # Changed variable name
+            yield (b"--frame\r\n"
+                   b"Content-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n")
+        except Exception as e:
+            # If getImageRemote fails, the connection might be lost.
+            print("[WARN] Error getting image from camera:", e)
+            time.sleep(1) # Wait a second before retrying
 
-        if not TPU_OK:
-            cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
-            gesture = "TPU Offline"
-        elif not gesture_collector.collecting:
-            gesture = "Idle"
-        else:
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            gesture, confidence, infer_ms, landmark_pts_for_drawing = _process_hand_gestures(rgb_frame)
-            if landmark_pts_for_drawing is not None:
-                draw_landmarks(frame, landmark_pts_for_drawing, frame.shape[1], frame.shape[0])
-            _check_and_finalize_round()
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_video_stream(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-        latest_stats.update({
-            "gesture": gesture,
-            "confidence": round(confidence, 2),
-            "fps": round(fps, 1),
-            "cpu": cpu,
-            "ram": ram_str,
-            "inference_ms": round(infer_ms, 1),
-            "cpu_temp": cpu_temp,
-            "tpu": TPU_OK,
-            "camera": cap.isOpened(),
-        })
-
-        ok_enc, buf = cv2.imencode(".jpg", frame)
-        if not ok_enc:
-            log("[⚠️] JPEG encoding failed.")
-            continue
-
-        yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\r\n" + buf.tobytes() + b"\r\n"
-        )
-
-
-# === Routes ===
-@app.route("/")
+@app.route('/')
 def index():
-    return render_template("index.html")
+    return "Pepper API Server is running. Video at /video_feed"
 
+# === Gestures (Refactored to be Non-Blocking) ===
 
-@app.route("/video_feed")
-def video_feed_route():
-    return Response(generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
+def run_in_thread(target_func):
+    """Decorator to run a function in a separate thread."""
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=target_func, args=args, kwargs=kwargs)
+        thread.daemon = True
+        thread.start()
+    return wrapper
 
+@run_in_thread
+def do_rock():
+    print("[ACTION] Performing: rock")
+    posture_service.goToPosture("StandInit", 0.5)
+    motion_service.setStiffnesses("RArm", 1.0)
+    motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
+                             [1.0, 0.5, 0.0, 0.0], 0.2)
+    time.sleep(4)
+    posture_service.goToPosture("StandInit", 0.5)
 
-@app.route("/gesture_data")
-def gesture_data_route():
-    return jsonify(latest_stats)
+@run_in_thread
+def do_paper():
+    print("[ACTION] Performing: paper")
+    posture_service.goToPosture("StandInit", 0.5)
+    motion_service.setStiffnesses("RArm", 1.0)
+    motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
+                             [0.8, 0.0, 1.0, -1.2, 1.0], 0.2)
+    time.sleep(4)
+    posture_service.goToPosture("StandInit", 0.5)
 
+@run_in_thread
+def do_scissors():
+    print("[ACTION] Performing: scissors")
+    posture_service.goToPosture("StandInit", 0.5)
+    motion_service.setStiffnesses("RArm", 1.0)
+    motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
+                             [0.8, 0.0, 1.0, 0.0, 1.0], 0.2)
+    time.sleep(4)
+    posture_service.goToPosture("StandInit", 0.5)
 
-@app.route("/start_round")
-def start_round_route_api():
-    if not TPU_OK:
-        log("[❌] Cannot start round: TPU not available.")
-        return jsonify({"status": "no_tpu", "message": "TPU not available. Cannot start round."})
+@run_in_thread
+def do_swing():
+    print("[ACTION] Performing: swing")
+    posture_service.goToPosture("StandInit", 0.5)
+    motion_service.setStiffnesses("RArm", 1.0)
+    for _ in range(4):
+        motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [0.4, 1.1], 0.3)
+        time.sleep(0.25)
+        motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [1.3, 0.4], 0.3)
+        time.sleep(0.25)
+    posture_service.goToPosture("StandInit", 0.5)
 
-    if not cap.isOpened():
-        log("[❌] Cannot start round: Camera not available.")
-        return jsonify({"status": "no_camera", "message": "Camera not available. Cannot start round."})
+@app.route('/gesture/<gesture_name>')
+def perform_gesture(gesture_name):
+    gesture_map = {
+        "rock": do_rock,
+        "paper": do_paper,
+        "scissors": do_scissors,
+        "swing": do_swing
+    }
+    func = gesture_map.get(gesture_name.lower())
 
-    if not gesture_collector.collecting:
-        gesture_collector.start()
-        prepare_round()
-        log("[🎬] Round started: collecting gestures")
-        return jsonify({"status": "collecting", "message": "Round started. Collecting gestures..."})
+    if func:
+        func() # This now calls the threaded version
+        return jsonify({"status": "ok", "message": "Gesture " + gesture_name + " started."})
     else:
-        return jsonify({"status": "already_collecting", "message": "Already collecting gestures."})
+        return jsonify({"error": "Unknown gesture"}), 400
 
 
-@app.route("/game_state")
-def get_game_state_route():
-    return jsonify(game_state)
+@run_in_thread
+def say_text_threaded(text):
+    try:
+        print("[ACTION] Saying:", text)
+        tts_service.say(str(text))
+    except Exception as e:
+        print("[ERROR] TTS Error:", e)
 
+@app.route('/say', methods=['POST'])
+def say_text():
+    data = request.get_json()
+    if not data or "text" not in data:
+        return jsonify({"error": "Missing 'text' field"}), 400
 
-@app.route("/reset_game")
-def reset_game_route_api():
-    reset_game()
-    gesture_collector.reset()
-    log("[🔄] Game has been reset.")
-    return jsonify({"status": "reset", "message": "Game reset."})
+    say_text_threaded(data["text"])
+    return jsonify({"status": "ok", "message": "Speech started."})
 
+@app.route('/listen', methods=['GET'])
+def listen_for_word():
+    try:
+        vocabulary = ["rock", "paper", "scissors", "swing", "stop"]
+        asr_service.setLanguage("English")
+        asr_service.setVocabulary(vocabulary, False)
+        asr_service.startDetection()
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=80, threaded=True, debug=False)
+        print("[INFO] Listening for words...")
+
+        word_heard = None
+        start_time = time.time()
+        timeout = 10  # seconds
+
+        while time.time() - start_time < timeout:
+            result = memory_service.getData("WordRecognized")
+            if isinstance(result, list) and len(result) >= 2 and result[1] > 0.4:
+                word_heard = result[0]
+                break
+            time.sleep(0.1)
+
+        asr_service.stopDetection()
+
+        if word_heard:
+            return jsonify({"heard": word_heard})
+        else:
+            return jsonify({"error": "Nothing recognized within the time limit"}), 408
+
+    except Exception as e:
+        return jsonify({"error": "ASR failure", "detail": str(e)}), 500
+
+if __name__ == '__main__':
+    disable_autonomous_behaviors()
+    setup_camera()
+    try:
+        app.run(host='0.0.0.0', port=5001)
+    finally:
+        print("\n[INFO] Server shutting down. Releasing camera.")
+        if name_id:
+            video_service.unsubscribe(name_id)
+        posture_service.goToPosture("Crouch", 0.5)
+        motion_service.setStiffnesses("Body", 0.0)
