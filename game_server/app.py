@@ -9,7 +9,6 @@ import mediapipe as mp
 from utils.game_logic import prepare_round, game_state, play_round, reset_game
 from utils.draw import draw_landmarks
 from utils.gesture_buffer import GestureCollector
-
 from utils.camera import setup_camera, get_display_frame
 from utils.stats import get_system_stats
 from utils.tpu import load_tpu_model, run_inference
