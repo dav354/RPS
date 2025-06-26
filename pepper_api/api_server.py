@@ -110,7 +110,7 @@ def do_rock():
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
                              [1.0, 0.5, 0.0, 0.0], 0.2)
-    time.sleep(GESTURE_HOLD_DURATION
+    time.sleep(GESTURE_HOLD_DURATION)
     posture_service.goToPosture("StandInit", 0.5)
 
 @run_in_thread
