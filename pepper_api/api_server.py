@@ -106,7 +106,6 @@ def run_in_thread(target_func):
 @run_in_thread
 def do_rock():
     print("[ACTION] Performing: rock")
-    posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
                              [1.0, 0.5, 0.0, 0.0], 0.2)
@@ -116,7 +115,6 @@ def do_rock():
 @run_in_thread
 def do_paper():
     print("[ACTION] Performing: paper")
-    posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
                              [0.8, 0.0, 1.0, -1.2, 1.0], 0.2)
@@ -126,7 +124,6 @@ def do_paper():
 @run_in_thread
 def do_scissors():
     print("[ACTION] Performing: scissors")
-    posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
                              [0.8, 0.0, 1.0, 0.0, 1.0], 0.2)
@@ -142,8 +139,6 @@ def do_swing():
         motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [0.4, 1.1], 0.3)
         time.sleep(0.25)
         motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [1.3, 0.4], 0.3)
-        time.sleep(0.25)
-    posture_service.goToPosture("StandInit", 0.5)
 
 @app.route('/gesture/<gesture_name>')
 def perform_gesture(gesture_name):
