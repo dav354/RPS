@@ -87,7 +87,7 @@ class GameManager:
         self._last_round_time = 0
         self._update_global_game_state()
         print("[GAME] Game reset. Preparing for new game.")
-        call_robot_speech_api("Game reset. Let's play a new game of rock paper scissors!")
+        call_robot_speech_api("Game reset.")
 
     def start_new_round(self):
         """Initiates a new round if the game is not over and cooldown allows."""
@@ -108,7 +108,7 @@ class GameManager:
             # This handles cases where _game_over might not have been caught
             # e.g., if a new round is requested immediately after the last round finished.
             self._game_over = True
-            game_state["result"] = "Game over. Max rounds reached."
+            game_state["result"] = "Game over."
             self._update_global_game_state()
             return False
 
@@ -134,7 +134,7 @@ class GameManager:
 
         # Re-check for game over or cooldown, though `start_new_round` should prevent most of this
         if self._game_over:
-            game_state["result"] = "Game over. Please reset to play again."
+            game_state["result"] = "Game over."
             self._update_global_game_state()
             return game_state
 
@@ -172,11 +172,11 @@ class GameManager:
         ]:
             result_message = "You Win!"
             self._score["player"] += 1
-            call_robot_speech_api("Yes, you win this round!")
+            call_robot_speech_api("Yes, you win!")
         else:
             result_message = "Computer Wins!"
             self._score["computer"] += 1
-            call_robot_speech_api("Ha ha, I win this round!")
+            call_robot_speech_api("Ha ha, I won.")
 
         self._last_round_time = now
         game_state.update({

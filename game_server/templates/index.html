@@ -84,7 +84,6 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
   <script>
     const body = document.body;
     const darkToggle = document.getElementById('darkModeToggle');
@@ -110,6 +109,8 @@
     const playIcon = document.getElementById("playBtnIcon");
     let gameActive = false;
     let pollInterval;
+    // New flag to prevent multiple reset timers from being scheduled
+    let resetTimerScheduled = false;
 
     async function fetchStats() {
       const res = await fetch('/gesture_data');
@@ -141,10 +142,14 @@
       if (gameActive) {
         await fetch("/reset_game");
         stopPolling();
+        // Ensure resetTimerScheduled is reset if game is stopped manually
+        resetTimerScheduled = false;
       } else {
         await fetch("/reset_game"); // Always reset game state
         await fetch("/start_round"); // Then start the first round
         startPolling();
+        // When a new game starts, ensure the reset timer isn't pending
+        resetTimerScheduled = false;
       }
       gameActive = !gameActive;
       updateButton();
@@ -158,6 +163,11 @@
     }
 
     function startPolling() {
+      // Clear any existing interval before setting a new one to prevent duplicates
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+
       pollInterval = setInterval(() => {
         fetch("/game_state")
           .then(res => res.json())
@@ -175,45 +185,55 @@
             document.querySelector("#result .right").textContent = state.player_move;
 
             if (state.game_over) { // Check the new 'game_over' field from backend
-              clearInterval(pollInterval);
+              clearInterval(pollInterval); // Stop polling immediately
               gameActive = false;
               updateButton();
 
-              // Delay reset for 5 seconds (5000ms)
-              setTimeout(() => {
-                fetch("/reset_game").then(() => {
-                  // Reset UI after game over and backend reset
-                  document.querySelector("#match .right").textContent = `Player (Round 1/${totalRounds})`;
-                  document.querySelector("#score .left").textContent = `0`;
-                  document.querySelector("#score .right").textContent = `0`;
-                  document.querySelector("#result .left").textContent = `…`;
-                  document.querySelector("#result .right").textContent = `…`;
-                });
-              }, 5000);
+              // Schedule reset ONLY if it hasn't been scheduled already
+              if (!resetTimerScheduled) {
+                resetTimerScheduled = true; // Mark as scheduled
+                console.log("Game Over. Scheduling reset in 5 seconds...");
+                setTimeout(() => {
+                  fetch("/reset_game").then(() => {
+                    console.log("Game reset after 5-second delay.");
+                    // Reset UI after game over and backend reset
+                    document.querySelector("#match .right").textContent = `Player (Round 1/${totalRounds})`;
+                    document.querySelector("#score .left").textContent = `0`;
+                    document.querySelector("#score .right").textContent = `0`;
+                    document.querySelector("#result .left").textContent = `…`;
+                    document.querySelector("#result .right").textContent = `…`;
+                    resetTimerScheduled = false; // Allow new resets for future games
+                  });
+                }, 5000);
+              }
             } else {
-              // If game is active and a result exists (meaning a round just processed),
-              // and we are not yet at the max rounds, then trigger the next round
-              // The backend's `start_new_round` already handles the cooldown.
-              // A round is considered "processed" if player_move and computer_move are not "none"
-              // and the result is not empty (e.g., "Waiting for player...")
+              // If game is active and a round has been processed, trigger the next round
               const roundProcessed = state.player_move !== "none" && state.computer_move !== "none" && state.result !== `Round ${r}/${totalRounds}: Waiting for player...`;
 
               if (gameActive && roundProcessed && r < totalRounds) {
                 console.log(`Round ${r} processed. Triggering next round via /start_round.`);
-                fetch("/start_round"); // Fire and forget. Backend will handle cooldown.
+                // Fire and forget. Backend will handle cooldown.
+                fetch("/start_round");
               }
             }
           })
           .catch(error => {
             console.error("Error fetching game state:", error);
             // Optionally stop polling or show error to user
-            // clearInterval(pollInterval); // Uncomment to stop polling on error
+            clearInterval(pollInterval); // Stop polling on error
+            gameActive = false;
+            updateButton();
+            resetTimerScheduled = false; // Ensure it's reset if polling stops due to error
           });
       }, 1500);
     }
 
     function stopPolling() {
       clearInterval(pollInterval);
+      // When polling stops (e.g., manually), also clear the scheduled reset if any
+      // This part is less critical because toggleGame also sets resetTimerScheduled to false
+      // when gameActive becomes false.
+      // clearTimeout(resetTimeoutId); // If you stored the ID, clear it here.
     }
 
     playBtn.addEventListener("click", toggleGame);
