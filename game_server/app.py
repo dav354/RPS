@@ -212,7 +212,6 @@ def generate_frames():
             if landmark_pts_to_draw is not None:
                 # Pass the original frame dimensions for drawing
                 draw_landmarks(frame, landmark_pts_to_draw, frame.shape[1], frame.shape[0])
-            _check_and_finalize_round()
 
         latest_stats.update({
             "gesture": gesture,
@@ -251,8 +250,8 @@ def run_three_rounds():
         # Wait for collection/round to complete before continuing
         while gesture_collector.collecting:
             time.sleep(0.5)
-
-        # Add a 3-second delay before next round
+        _check_and_finalize_round()
+         # Add a 3-second delay before next round
         time.sleep(3)
 
 
