@@ -5,9 +5,6 @@ from flask import Flask, Response, render_template, jsonify
 from collections import deque
 import cv2
 import mediapipe as mp
-import threading
-
-
 
 from utils.game_logic import prepare_round, play_round, reset_game, game_manager
 from utils.draw import draw_landmarks
@@ -15,6 +12,12 @@ from utils.gesture_buffer import GestureCollector
 from utils.camera import setup_camera, get_display_frame
 from utils.stats import get_system_stats
 from utils.tpu import load_tpu_model, run_inference
+
+# === Game State Management ===
+GAME_STATE = "IDLE"  # Possible states: "IDLE", "COLLECTING", "COOLDOWN"
+COOLDOWN_DURATION = 3  # Seconds between rounds
+NEXT_ROUND_TIME = 0
+
 
 # === Configuration ===
 PEPPER_IP = os.environ.get("PEPPER_IP")
@@ -166,26 +169,44 @@ def _process_hand_gestures(rgb_frame):
 
 
 def _check_and_finalize_round():
+    global GAME_STATE, NEXT_ROUND_TIME
+
     if gesture_collector.is_done():
         final_gesture = gesture_collector.get_most_common()
         log(f"[🧠] Round decided. Most common gesture: {final_gesture}")
-        play_round(final_gesture)
-        gesture_collector.reset()
 
+        play_round(final_gesture) # This updates game_manager state
+
+        if not game_manager.over:
+            # Game is not over, enter cooldown before the next round
+            log(f"[GAME] Entering {COOLDOWN_DURATION}s cooldown...")
+            GAME_STATE = "COOLDOWN"
+            NEXT_ROUND_TIME = time.time() + COOLDOWN_DURATION
+            gesture_collector.reset() # Stop collecting during cooldown
+        else:
+            # Game is over, go back to idle
+            log("[🎉] Game Over! Halting.")
+            GAME_STATE = "IDLE"
+            gesture_collector.reset()
 
 def generate_frames():
+    global GAME_STATE, NEXT_ROUND_TIME
     prev_time = time.time()
 
     while True:
-        frame_ok, frame = get_display_frame(cap, camera_source)
+        # --- State transition logic ---
+        if GAME_STATE == "COOLDOWN" and time.time() >= NEXT_ROUND_TIME:
+            log("[GAME] Cooldown finished. Starting next round.")
+            GAME_STATE = "COLLECTING"
+            prepare_round()
+            gesture_collector.start()
 
+        # --- Frame grabbing and stats ---
+        frame_ok, frame = get_display_frame(cap, camera_source)
         if not frame_ok:
+            # (Your existing error handling for frame not ok)
             ok_enc, buf = cv2.imencode(".jpg", frame)
-            if ok_enc:
-                yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
+            if ok_enc: yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
             time.sleep(1)
             continue
 
@@ -198,21 +219,27 @@ def generate_frames():
         gesture = "N/A"
         confidence = 0.0
         infer_ms = 0.0
-        landmark_pts_to_draw = None # Renamed to avoid confusion with internal 3D coords
+        landmark_pts_to_draw = None
 
+        # --- Main logic based on state ---
         if not TPU_OK:
-            cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
             gesture = "TPU Offline"
-        elif not gesture_collector.collecting:
-            gesture = "Idle"
-        else:
+        elif GAME_STATE == "COLLECTING":
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             gesture, confidence, infer_ms, landmark_pts_to_draw = _process_hand_gestures(rgb_frame)
             if landmark_pts_to_draw is not None:
-                # Pass the original frame dimensions for drawing
                 draw_landmarks(frame, landmark_pts_to_draw, frame.shape[1], frame.shape[0])
 
+            # The check is now inside the collecting block
+            _check_and_finalize_round()
+        elif GAME_STATE == "COOLDOWN":
+            # Display a non-blocking countdown!
+            remaining_time = max(0, NEXT_ROUND_TIME - time.time())
+            gesture = f"Next round in {remaining_time:.1f}s"
+        elif GAME_STATE == "IDLE":
+            gesture = "Idle"
+
+        # --- Update stats and yield frame (your existing code) ---
         latest_stats.update({
             "gesture": gesture,
             "confidence": round(confidence, 2),
@@ -230,30 +257,7 @@ def generate_frames():
             log("[⚠️] JPEG encoding failed.")
             continue
 
-        yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-        )
-
-
-def run_three_rounds():
-    for _ in range(3):
-        if game_manager.state["round"] >= 3:
-            game_manager.state["game_over"] = True
-            break
-
-        if not gesture_collector.collecting:
-            gesture_collector.start()
-            prepare_round()
-            log("[🎬] Round started: collecting gestures")
-
-        # Wait for collection/round to complete before continuing
-        while gesture_collector.collecting:
-            time.sleep(0.5)
-        _check_and_finalize_round()
-         # Add a 3-second delay before next round
-        time.sleep(3)
-
+        yield (b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n")
 
 # === Routes ===
 @app.route("/")
@@ -273,6 +277,7 @@ def gesture_data_route():
 
 @app.route("/start_round")
 def start_round_route_api():
+    global GAME_STATE
     if not TPU_OK:
         log("[❌] Cannot start round: TPU not available.")
         return jsonify({"status": "no_tpu", "message": "TPU not available. Cannot start round."})
@@ -281,14 +286,15 @@ def start_round_route_api():
         log("[❌] Cannot start round: Camera not available.")
         return jsonify({"status": "no_camera", "message": "Camera not available. Cannot start round."})
 
-    if gesture_collector.collecting:
-        return jsonify({"status": "already_collecting", "message": "Already collecting gestures."})
-
-    # Launch thread for 3 rounds
-    threading.Thread(target=run_three_rounds, daemon=True).start()
-    return jsonify({"status": "started", "message": "Three rounds started in background."})
-
-
+    # Start the game only if it's currently idle
+    if GAME_STATE == "IDLE":
+        GAME_STATE = "COLLECTING"
+        gesture_collector.start()
+        prepare_round()
+        log("[🎬] Round started: collecting gestures")
+        return jsonify({"status": "collecting", "message": "Round started. Collecting gestures..."})
+    else:
+        return jsonify({"status": "already_running", "message": f"Cannot start, game is in '{GAME_STATE}' state."})
 
 @app.route("/game_state")
 def get_game_state_route():
