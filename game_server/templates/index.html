@@ -33,32 +33,6 @@
         <img src="{{ url_for('video_feed_route') }}" class="responsive-img" id="camera-stream"
           onerror="this.onerror=null;this.src='/static/assets/camera_off.png';" />
 
-        <div class="card blue-grey lighten-5" style="margin-top: 24px; padding: 24px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <button id="playBtn" class="btn-large green">
-              <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
-            </button>
-
-            <div class="game-info-container" style="flex:1;">
-              <div id="match" class="info-line">
-                <span class="left">Pepper</span>
-                <span class="separator">vs</span>
-                <span class="right">Player (Round 1/3)</span>
-              </div>
-              <div id="score" class="info-line" style="font-size:1.8rem;">
-                <span class="left">0</span>
-                <span class="separator">:</span>
-                <span class="right">0</span>
-              </div>
-              <div id="result" class="info-line" style="font-size:1.3rem;">
-                <span class="left">...</span>
-                <span class="separator">:</span>
-                <span class="right">...</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
       </div>
 
       <div style="flex:1;">
@@ -79,6 +53,32 @@
             <p><strong>CPU %:</strong> <span id="cpu">…</span></p>
             <p><strong>CPU Temp (°C):</strong> <span id="cpu_temp">…</span></p>
             <p><strong>RAM:</strong> <span id="ram">…</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card blue-grey lighten-5" style="margin-top: 24px; padding: 24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button id="playBtn" class="btn-large green">
+          <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
+        </button>
+
+        <div class="game-info-container" style="flex:1;">
+          <div id="match" class="info-line">
+            <span class="left">Pepper</span>
+            <span class="separator">vs</span>
+            <span class="right">Player (Round 1/3)</span>
+          </div>
+          <div id="score" class="info-line" style="font-size:1.8rem;">
+            <span class="left">0</span>
+            <span class="separator">:</span>
+            <span class="right">0</span>
+          </div>
+          <div id="result" class="info-line" style="font-size:1.3rem;">
+            <span class="left">...</span>
+            <span class="separator">:</span>
+            <span class="right">...</span>
           </div>
         </div>
       </div>
