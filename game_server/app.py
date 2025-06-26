@@ -183,7 +183,7 @@ def generate_frames():
             if ok_enc:
                 yield (
                         b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                        b"Content-Type: image/jpeg\r\r" + buf.tobytes() + b"\r\n"
                 )
             time.sleep(1)
             continue
