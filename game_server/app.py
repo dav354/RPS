@@ -5,11 +5,8 @@ from flask import Flask, Response, render_template, jsonify
 from collections import deque
 import cv2
 import mediapipe as mp
-import threading
 
-
-
-from utils.game_logic import prepare_round, play_round, reset_game, game_manager
+from utils.game_logic import prepare_round, game_state, play_round, reset_game
 from utils.draw import draw_landmarks
 from utils.gesture_buffer import GestureCollector
 from utils.camera import setup_camera, get_display_frame
@@ -301,7 +298,7 @@ def start_game_route_api():
 
 @app.route("/game_state")
 def get_game_state_route():
-    return jsonify(game_manager.state)
+    return jsonify(game_state)
 
 
 @app.route("/reset_game")
