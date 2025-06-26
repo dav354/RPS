@@ -1,161 +1,227 @@
-# utils/game_logic.py
 import os
 import random
 import time
 import requests
 import threading
 
-# === Config ===
-ROBOT_API_BASE_URL = f"http://{os.environ.get('PEPPER_IP')}:5001" if os.environ.get("PEPPER_IP") else ""
-COOLDOWN = 3
-TOTAL_ROUNDS = 3
+# === Robot API Configuration ===
+ROBOT_API_BASE_URL = os.environ.get("PEPPER_IP")
 
+# === Configuration ===
+COOLDOWN = 3  # Seconds between actions/rounds
+TOTAL_ROUNDS = 3 # Total rounds per game
+
+# === Global Game State (managed by GameManager instance) ===
+# This will be updated by the GameManager instance
+game_state = {
+    "player_move": "none",
+    "computer_move": "none",
+    "result": "",
+    "last_played": 0,
+    "score": {"player": 0, "computer": 0},
+    "current_round": 0,
+    "total_rounds": TOTAL_ROUNDS,
+    "game_over": False
+}
+
+# === Async HTTP Utility ===
 def make_async_request(url, method='GET', payload=None, timeout=2):
+    """
+    Sends an asynchronous HTTP request to the specified URL.
+    The response is not awaited in this function.
+    """
     def _request():
         try:
             if method == 'GET':
-                requests.get(url, timeout=timeout)
+                response = requests.get(url, timeout=timeout)
             elif method == 'POST':
-                requests.post(url, json=payload, timeout=timeout)
+                response = requests.post(url, json=payload, timeout=timeout)
+            else:
+                raise ValueError("Unsupported HTTP method")
+            # print(f"[✅] {method} to {url} succeeded: {response.status_code}")
         except requests.RequestException as e:
-            print(f"[❌] Request failed: {e}")
-    if ROBOT_API_BASE_URL: # Only try to make requests if IP is set
-        threading.Thread(target=_request, daemon=True).start()
+            print(f"[❌] {method} to {url} failed: {e}")
+    threading.Thread(target=_request, daemon=True).start()
 
-def call_robot_gesture_api(gesture: str):
-    make_async_request(f"{ROBOT_API_BASE_URL}/gesture/{gesture.lower()}")
+# === Robot API Wrappers ===
+def call_robot_gesture_api(gesture_name: str):
+    """Triggers a gesture on the robot asynchronously."""
+    url = f"{ROBOT_API_BASE_URL}/gesture/{gesture_name.lower()}"
+    make_async_request(url, method='GET', timeout=1)
 
-def call_robot_speech_api(text: str):
-    make_async_request(f"{ROBOT_API_BASE_URL}/say", method='POST', payload={'text': text})
+def call_robot_speech_api(text_to_speak: str):
+    """Makes the robot speak asynchronously."""
+    url = f"{ROBOT_API_BASE_URL}/say"
+    payload = {'text': text_to_speak}
+    make_async_request(url, method='POST', payload=payload, timeout=2)
 
-# === GameManager ===
+# === Game Management Class ===
 class GameManager:
     def __init__(self, total_rounds=TOTAL_ROUNDS):
         self.total_rounds = total_rounds
-        self.reset()
+        self._score = {"player": 0, "computer": 0}
+        self._current_round = 0
+        self._game_over = False
+        self._last_round_time = 0 # To manage cooldown between rounds
+        self._update_global_game_state() # Initialize global state
 
-    def reset(self):
-        self.round = 0
-        self.score = {"player": 0, "computer": 0}
-        self.last_time = 0
-        self.over = False
-        self.state = {
-            "player_move": "none",
-            "computer_move": "none",
-            "result": "Press 'Start Game' to begin!",
-            "score": self.score.copy(),
-            "round": self.round,
-            "game_over": self.over
-        }
-        call_robot_speech_api("Let's play a new game.")
-        print("[GAME] Reset")
-
-    def _cooldown_remaining(self):
-        return max(0, COOLDOWN - (time.time() - self.last_time))
-
-    def _set_result(self, result, update_state=True):
-        self.state["result"] = result
-        if update_state:
-            self._update_state()
-
-    def _update_state(self):
-        self.state.update({
-            "score": self.score.copy(),
-            "round": self.round,
-            "game_over": self.over,
+    def _update_global_game_state(self):
+        """Updates the global game_state dictionary from instance attributes."""
+        global game_state
+        game_state.update({
+            "player_move": game_state.get("player_move", "none"), # Keep previous move for display
+            "computer_move": game_state.get("computer_move", "none"), # Keep previous move for display
+            "result": game_state.get("result", ""), # Keep previous result for display
+            "last_played": self._last_round_time,
+            "score": self._score.copy(),
+            "current_round": self._current_round,
+            "total_rounds": self.total_rounds,
+            "game_over": self._game_over
         })
 
-    def start_round(self):
-        if self.over:
+    def prepare_game(self):
+        """Prepares for a new game, resetting scores and state."""
+        self._score = {"player": 0, "computer": 0}
+        self._current_round = 0
+        self._game_over = False
+        self._last_round_time = 0
+        self._update_global_game_state()
+        print("[GAME] Game reset. Preparing for new game.")
+        call_robot_speech_api("Game reset.")
+
+    def start_new_round(self):
+        """Initiates a new round if the game is not over and cooldown allows."""
+        now = time.time()
+
+        if self._game_over:
+            game_state["result"] = "Game over. Please reset to play again."
+            self._update_global_game_state()
+            return False # Cannot start round
+
+        if now - self._last_round_time < COOLDOWN:
+            cooldown_remaining = COOLDOWN - (now - self._last_round_time)
+            game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s before next round."
+            self._update_global_game_state()
+            return False # Cannot start round
+
+        if self._current_round >= self.total_rounds:
+            # This handles cases where _game_over might not have been caught
+            # e.g., if a new round is requested immediately after the last round finished.
+            self._game_over = True
+            game_state["result"] = "Game over."
+            self._update_global_game_state()
             return False
 
-        self.round += 1
-        self.last_time = time.time()
-        self.state.update({
+        self._current_round += 1
+        print(f"[ROUND] Starting Round {self._current_round}/{self.total_rounds}")
+        call_robot_speech_api(f"Round {self._current_round}. Show your move!")
+        call_robot_gesture_api("swing") # Robot swings to signal start of round
+        game_state.update({ # Reset round-specific state
             "player_move": "none",
             "computer_move": "none",
-            "result": f"Round {self.round}/{self.total_rounds}: Show your move!"
+            "result": f"Round {self._current_round}/{self.total_rounds}: Waiting for player...",
+            "last_played": now
         })
-        self._update_state()
+        self._update_global_game_state()
+        return True # Round started successfully
 
-        call_robot_speech_api(f"Round {self.round}. Rock, paper, scissors, shoot!")
-        call_robot_gesture_api("swing")
-        print(f"[ROUND] Round {self.round}/{self.total_rounds} started")
-        return True
+    def play_round(self, player_move: str) -> dict:
+        """
+        Processes a single round of Rock, Paper, Scissors.
+        Assumes start_new_round has already been called for the current round.
+        """
+        now = time.time()
 
-    def play_round(self, player_move):
-        if self.over:
-            return self.state
+        # Re-check for game over or cooldown, though `start_new_round` should prevent most of this
+        if self._game_over:
+            game_state["result"] = "Game over."
+            self._update_global_game_state()
+            return game_state
+
+        if now - self._last_round_time < COOLDOWN:
+            cooldown_remaining = COOLDOWN - (now - self._last_round_time)
+            game_state["result"] = f"Still in cooldown from previous round... wait {cooldown_remaining:.1f}s"
+            self._update_global_game_state()
+            return game_state
 
         if player_move not in {"rock", "paper", "scissors"}:
-            self._set_result("Invalid move detected. Round skipped.")
-            call_robot_speech_api("I did not see a valid move.")
-            self._update_state()
-            self._check_game_over()
-            return self.state
+            game_state.update({
+                "error": "Invalid move",
+                "player_move": player_move,
+                "computer_move": "none",
+                "result": "Invalid move. Please choose rock, paper, or scissors.",
+                "score": self._score.copy(),
+                "last_played": now
+            })
+            call_robot_speech_api("Invalid move. Please choose rock, paper, or scissors.")
+            self._update_global_game_state()
+            return game_state
 
         computer_move = random.choice(["rock", "paper", "scissors"])
-        result = self._determine_winner(player_move, computer_move)
+        call_robot_speech_api(computer_move) # Announce robot's move
+        call_robot_gesture_api(computer_move) # Perform robot's move
 
-        self.last_time = time.time()
-        self.state.update({
-            "player_move": player_move,
-            "computer_move": computer_move,
-            "result": result
-        })
-        self._update_state()
-
-        self._check_game_over()
-        return self.state
-
-    def _determine_winner(self, player, computer):
-        call_robot_gesture_api(computer)
-        time.sleep(1) # Give robot time to start gesture before announcing result
-
-        if player == computer:
-            call_robot_speech_api("It's a draw!")
-            return "Draw!"
-        win_conditions = {
+        result_message = ""
+        if player_move == computer_move:
+            result_message = "Draw!"
+            call_robot_speech_api("It's a draw, try again!")
+        elif (player_move, computer_move) in [
             ("rock", "scissors"),
             ("paper", "rock"),
             ("scissors", "paper")
-        }
-        if (player, computer) in win_conditions:
-            self.score["player"] += 1
-            call_robot_speech_api("You win this round!")
-            return "You Win!"
+        ]:
+            result_message = "You Win!"
+            self._score["player"] += 1
+            call_robot_speech_api("Yes, you win!")
         else:
-            self.score["computer"] += 1
-            call_robot_speech_api("I win this round!")
-            return "Computer Wins!"
-    
-    def _check_game_over(self, force_end=False):
-        player_wins = self.score["player"]
-        computer_wins = self.score["computer"]
-        majority = self.total_rounds // 2 + 1
+            result_message = "Computer Wins!"
+            self._score["computer"] += 1
+            call_robot_speech_api("Ha ha, I won.")
 
-        if force_end or self.round >= self.total_rounds or player_wins >= majority or computer_wins >= majority:
-            self.over = True
-            if player_wins > computer_wins:
-                winner_msg = "Congratulations, you won the game!"
-            elif computer_wins > player_wins:
-                winner_msg = "I win the game! Better luck next time."
+        self._last_round_time = now
+        game_state.update({
+            "player_move": player_move,
+            "computer_move": computer_move,
+            "result": result_message,
+            "last_played": now,
+            "score": self._score.copy()
+        })
+        self._update_global_game_state()
+
+        # Check for game over conditions after updating score for the round
+        if self._current_round == self.total_rounds or \
+                self._score["player"] == (self.total_rounds // 2 + 1) or \
+                self._score["computer"] == (self.total_rounds // 2 + 1):
+            self._game_over = True
+            final_winner = ""
+            if self._score["player"] > self._score["computer"]:
+                final_winner = "Player"
+                call_robot_speech_api("Congratulations! You won the game!")
+            elif self._score["computer"] > self._score["player"]:
+                final_winner = "Computer"
+                call_robot_speech_api("I won the game! Better luck next time.")
             else:
-                winner_msg = "The game is a tie!"
-            
-            self.state["result"] = f"Game Over! {winner_msg}"
-            call_robot_speech_api(winner_msg)
-            print(f"[GAME OVER] {self.state['result']}")
-            self._update_state()
+                final_winner = "It's a tie!"
+                call_robot_speech_api("The game is a tie!")
 
+            game_state["result"] += f" 🎉 Game Over! {final_winner} wins overall."
+            print(f"[GAME OVER] {final_winner} wins.")
+            self._update_global_game_state()
 
-# === Interface ===
-game_manager = GameManager()
+        return game_state
+
+# === Initialize the GameManager ===
+game_manager = GameManager(total_rounds=TOTAL_ROUNDS)
+
+# === Public functions for Flask App ===
 def prepare_round():
-    return game_manager.start_round()
+    """Wrapper to call GameManager's start_new_round."""
+    return game_manager.start_new_round()
 
-def play_round(player_move: str):
+def play_round(player_move: str) -> dict:
+    """Wrapper to call GameManager's play_round."""
     return game_manager.play_round(player_move)
 
 def reset_game():
-    game_manager.reset()
+    """Wrapper to call GameManager's prepare_game (for resetting)."""
+    game_manager.prepare_game()
