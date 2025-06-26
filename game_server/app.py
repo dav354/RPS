@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import time
 import numpy as np
@@ -57,21 +56,90 @@ app = Flask(__name__)
 def log(msg: str):
     print(msg)
 
+def align_landmarks_3d(landmarks):
+    """
+    Aligns 3D hand landmarks:
+    1. Translates the wrist (landmark 0) to the origin.
+    2. Rotates the hand to a more canonical orientation.
+       This example uses the vector from wrist (0) to middle finger base (9) for alignment.
+       A more robust alignment might involve more points or PCA.
+    """
+    if landmarks.shape[1] != 3:
+        raise ValueError("Landmarks must be 3D (x, y, z) for 3D alignment.")
+
+    # Translate the wrist to the origin (landmark 0 is the wrist)
+    translated_landmarks = landmarks - landmarks[0]
+
+    # Calculate the vector from wrist (0) to middle finger base (9)
+    # This vector will be aligned with the Y-axis (or similar)
+    v_wrist_mid_finger = translated_landmarks[9] - translated_landmarks[0]
+    v_wrist_mid_finger_norm = np.linalg.norm(v_wrist_mid_finger)
+
+    if v_wrist_mid_finger_norm < 1e-6: # Avoid division by zero
+        return translated_landmarks
+
+    # Normalize this vector
+    v_norm = v_wrist_mid_finger / v_wrist_mid_finger_norm
+
+    # Create target vectors (e.g., align v_norm with the Y-axis)
+    target_y_axis = np.array([0, 1, 0])
+    # Compute the rotation axis and angle
+    rotation_axis = np.cross(v_norm, target_y_axis)
+    rotation_axis_norm = np.linalg.norm(rotation_axis)
+
+    if rotation_axis_norm < 1e-6: # Vectors are already aligned or opposite
+        if np.dot(v_norm, target_y_axis) < 0: # Opposite, rotate 180 degrees
+            rotation_angle = np.pi
+            rotation_axis = np.array([1, 0, 0]) # Arbitrary axis for 180 deg
+        else:
+            return translated_landmarks # Already aligned
+    else:
+        rotation_axis = rotation_axis / rotation_axis_norm
+        rotation_angle = np.arccos(np.dot(v_norm, target_y_axis))
+
+    # Build rotation matrix using Rodrigues' rotation formula
+    K = np.array([
+        [0, -rotation_axis[2], rotation_axis[1]],
+        [rotation_axis[2], 0, -rotation_axis[0]],
+        [-rotation_axis[1], rotation_axis[0], 0]
+    ])
+    R = np.eye(3) + np.sin(rotation_angle) * K + (1 - np.cos(rotation_angle)) * np.dot(K, K)
+
+    # Apply rotation
+    aligned_landmarks = np.dot(translated_landmarks, R.T)
+
+    return aligned_landmarks
 
 def _process_hand_gestures(rgb_frame):
     gesture, confidence, infer_ms = "No Hand", 0.0, 0.0
-    landmark_pts = None
+    landmark_pts_2d = None # Will be used for drawing
     results = mp_hands.process(rgb_frame)
 
     if results.multi_hand_landmarks:
         hand_landmarks = results.multi_hand_landmarks[0]
-        landmark_pts = np.array([[lm.x, lm.y] for lm in hand_landmarks.landmark], dtype=np.float32)
 
-        coords_normalized = landmark_pts - landmark_pts.mean(axis=0)
-        max_abs_val = np.max(np.abs(coords_normalized))
-        coords_scaled = coords_normalized / (max_abs_val if max_abs_val > 0 else 1)
+        # --- KEY CHANGE: Extracting x, y, and z coordinates ---
+        coords_3d = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark], dtype=np.float32)
 
-        dequantized_preds, current_infer_ms = run_inference(interpreter, input_details, output_details, coords_scaled)
+        # Apply 3D alignment, mirroring the training script
+        coords_3d_aligned = align_landmarks_3d(coords_3d)
+
+        # Normalize coordinates to [0, 1] range after alignment, mirroring training script
+        coords_min = coords_3d_aligned.min(axis=0)
+        coords_max = coords_3d_aligned.max(axis=0)
+        coords_range = coords_max - coords_min
+
+        # Avoid division by zero for dimensions with no variation
+        coords_normalized = (coords_3d_aligned - coords_min) / np.where(coords_range > 0, coords_range, 1)
+
+        # Flatten the 3D coordinates for the model input
+        flat_coords = coords_normalized.flatten()
+
+        # For drawing, you might want to use the original 2D (x,y) from the raw landmarks
+        landmark_pts_2d = np.array([[lm.x * rgb_frame.shape[1], lm.y * rgb_frame.shape[0]] for lm in hand_landmarks.landmark], dtype=np.int32)
+
+
+        dequantized_preds, current_infer_ms = run_inference(interpreter, input_details, output_details, flat_coords)
         infer_ms = current_infer_ms
 
         if dequantized_preds is not None:
@@ -92,7 +160,7 @@ def _process_hand_gestures(rgb_frame):
         else:
             gesture = "Inference Error"
 
-    return gesture, confidence, infer_ms, landmark_pts
+    return gesture, confidence, infer_ms, landmark_pts_2d
 
 
 def _check_and_finalize_round():
@@ -113,8 +181,8 @@ def generate_frames():
             ok_enc, buf = cv2.imencode(".jpg", frame)
             if ok_enc:
                 yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
                 )
             time.sleep(1)
             continue
@@ -128,7 +196,7 @@ def generate_frames():
         gesture = "N/A"
         confidence = 0.0
         infer_ms = 0.0
-        landmark_pts = None
+        landmark_pts_to_draw = None # Renamed to avoid confusion with internal 3D coords
 
         if not TPU_OK:
             cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
@@ -138,9 +206,10 @@ def generate_frames():
             gesture = "Idle"
         else:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            gesture, confidence, infer_ms, landmark_pts = _process_hand_gestures(rgb_frame)
-            if landmark_pts is not None:
-                draw_landmarks(frame, landmark_pts, frame.shape[1], frame.shape[0])
+            gesture, confidence, infer_ms, landmark_pts_to_draw = _process_hand_gestures(rgb_frame)
+            if landmark_pts_to_draw is not None:
+                # Pass the original frame dimensions for drawing
+                draw_landmarks(frame, landmark_pts_to_draw, frame.shape[1], frame.shape[0])
             _check_and_finalize_round()
 
         latest_stats.update({
@@ -161,8 +230,8 @@ def generate_frames():
             continue
 
         yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
 
