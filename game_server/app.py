@@ -234,25 +234,6 @@ def generate_frames():
         )
 
 
-def run_three_rounds():
-    for _ in range(3):
-        if game_manager.state["round"] >= 3:
-            game_manager.state["game_over"] = True
-            break
-
-        if not gesture_collector.collecting:
-            gesture_collector.start()
-            prepare_round()
-            log("[🎬] Round started: collecting gestures")
-
-        # Wait for collection/round to complete before continuing
-        while gesture_collector.collecting:
-            time.sleep(0.5)
-
-        # Add a 3-second delay before next round
-        time.sleep(3)
-
-
 # === Routes ===
 @app.route("/")
 def index():
@@ -279,13 +260,13 @@ def start_round_route_api():
         log("[❌] Cannot start round: Camera not available.")
         return jsonify({"status": "no_camera", "message": "Camera not available. Cannot start round."})
 
-    if gesture_collector.collecting:
+    if not gesture_collector.collecting:
+        gesture_collector.start()
+        prepare_round()
+        log("[🎬] Round started: collecting gestures")
+        return jsonify({"status": "collecting", "message": "Round started. Collecting gestures..."})
+    else:
         return jsonify({"status": "already_collecting", "message": "Already collecting gestures."})
-
-    # Launch thread for 3 rounds
-    threading.Thread(target=run_three_rounds, daemon=True).start()
-    return jsonify({"status": "started", "message": "Three rounds started in background."})
-
 
 
 @app.route("/game_state")
