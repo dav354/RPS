@@ -142,8 +142,8 @@
         await fetch("/reset_game");
         stopPolling();
       } else {
-        await fetch("/reset_game");
-        await fetch("/start_round");
+        await fetch("/reset_game"); // Always reset game state
+        await fetch("/start_round"); // Then start the first round
         startPolling();
       }
       gameActive = !gameActive;
@@ -164,17 +164,17 @@
           .then(state => {
             const p = state.score.player;
             const c = state.score.computer;
-            const r = p + c + 1;
+            const r = state.current_round; // Use state.current_round directly from backend
+            const totalRounds = state.total_rounds; // Get total rounds from backend
 
-            document.querySelector("#match .right").textContent = `Player (Round ${r > 3 ? 3 : r}/3)`;
-
+            // Update UI elements
+            document.querySelector("#match .right").textContent = `Player (Round ${r > totalRounds ? totalRounds : r}/${totalRounds})`;
             document.querySelector("#score .left").textContent = c;
             document.querySelector("#score .right").textContent = p;
-
             document.querySelector("#result .left").textContent = state.computer_move;
             document.querySelector("#result .right").textContent = state.player_move;
 
-            if (state.result.includes("Game Over")) {
+            if (state.game_over) { // Check the new 'game_over' field from backend
               clearInterval(pollInterval);
               gameActive = false;
               updateButton();
@@ -182,14 +182,32 @@
               // Delay reset for 5 seconds (5000ms)
               setTimeout(() => {
                 fetch("/reset_game").then(() => {
-                  document.querySelector("#match .right").textContent = `Player (Round 1/3)`;
+                  // Reset UI after game over and backend reset
+                  document.querySelector("#match .right").textContent = `Player (Round 1/${totalRounds})`;
                   document.querySelector("#score .left").textContent = `0`;
                   document.querySelector("#score .right").textContent = `0`;
                   document.querySelector("#result .left").textContent = `…`;
                   document.querySelector("#result .right").textContent = `…`;
                 });
               }, 5000);
+            } else {
+              // If game is active and a result exists (meaning a round just processed),
+              // and we are not yet at the max rounds, then trigger the next round
+              // The backend's `start_new_round` already handles the cooldown.
+              // A round is considered "processed" if player_move and computer_move are not "none"
+              // and the result is not empty (e.g., "Waiting for player...")
+              const roundProcessed = state.player_move !== "none" && state.computer_move !== "none" && state.result !== `Round ${r}/${totalRounds}: Waiting for player...`;
+
+              if (gameActive && roundProcessed && r < totalRounds) {
+                console.log(`Round ${r} processed. Triggering next round via /start_round.`);
+                fetch("/start_round"); // Fire and forget. Backend will handle cooldown.
+              }
             }
+          })
+          .catch(error => {
+            console.error("Error fetching game state:", error);
+            // Optionally stop polling or show error to user
+            // clearInterval(pollInterval); // Uncomment to stop polling on error
           });
       }, 1500);
     }
