@@ -171,11 +171,10 @@ def _check_and_finalize_round():
 
 
 def generate_frames():
-    global cap 
     prev_time = time.time()
 
     while True:
-        frame_ok, frame, cap = get_display_frame(cap, camera_source)
+        frame_ok, frame = get_display_frame(cap, camera_source)
 
         if not frame_ok:
             ok_enc, buf = cv2.imencode(".jpg", frame)
