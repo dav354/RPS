@@ -1,158 +1,120 @@
-/* === Base Theme (Light Mode) === */
+:root {
+    --bg-color: #f4f4f5;
+    --text-color: #18181b;
+    --card-bg: #ffffff;
+    --nav-bg: #546e7a;
+    --nav-text: #ffffff;
+    --primary-color: #26a69a;
+    --status-dot-ok: #4caf50;
+    --status-dot-error: #f44336;
+}
+
+.dark-theme {
+    --bg-color: #18181b;
+    --text-color: #e4e4e7;
+    --card-bg: #27272a;
+    --nav-bg: #27272a;
+    --nav-text: #e4e4e7;
+    --primary-color: #26a69a;
+}
+
 body {
-    background: #fff;
-    color: #000;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
 }
 
-nav,
-.nav-wrapper {
-    background-color: #1976d2 !important;
+nav {
+    background-color: var(--nav-bg);
+    color: var(--nav-text);
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
 }
 
-.card {
-    background: #f5f5f5;
-    color: #000;
+.brand-logo,
+.nav-icons li i {
+    color: var(--nav-text);
 }
 
-.card-title,
-.card-content p strong {
-    font-weight: 700;
-}
-
-#gesture,
-#confidence {
-    font-size: 1.3rem;
-    font-weight: 500;
-    color: #e9ba20;
-}
-
-/* === Dark Mode === */
-body.dark-theme {
-    background: #212121 !important;
-    color: #fff !important;
-}
-
-body.dark-theme nav,
-body.dark-theme .nav-wrapper {
-    background-color: #333 !important;
-}
-
-body.dark-theme .card {
-    background: #424242 !important;
-    color: #fff !important;
-}
-
-body.dark-theme .card .card-content,
-body.dark-theme .card .card-title {
-    color: #fff !important;
-}
-
-body.dark-theme #gesture,
-body.dark-theme #confidence {
-    color: #ffe082;
-    /* gold-yellow */
-}
-
-/* === Navbar icons === */
 .nav-icons {
     display: flex;
     align-items: center;
-    height: 100%;
 }
 
-.nav-icons li {
-    display: flex;
-    align-items: center;
-    height: 100%;
-}
-
-.nav-arm-btn {
-    cursor: pointer;
-    font-size: 2.1em;
-    color: #38bd04;
-    transition: color 0.2s;
-    margin: 0 1rem;
-}
-
-.nav-arm-btn.armed {
-    color: #fa0505;
-}
-
-/* === Dark Mode Toggle Icon === */
 .dark-toggle {
     cursor: pointer;
-    color: white;
-    font-size: 1.5rem;
-    line-height: 1.5rem;
-    margin-right: 1rem;
 }
 
-/* === Video Stream === */
 #camera-stream {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background-color: #e0e0e0;
     width: 100%;
     max-width: 640px;
     aspect-ratio: 4/3;
     height: auto;
     display: block;
     margin: 15px auto 0;
-    background: #222;
+}
+
+.card {
+    background-color: var(--card-bg);
+    color: var(--text-color);
     border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* === Game Info Box === */
-.game-info-flex {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    font-size: 1.2rem;
-    font-weight: 500;
-    margin-top: 8px;
+/* Game Control Panel Styling */
+.game-control-panel {
+    background-color: var(--card-bg);
+    margin-top: 24px;
+    padding: 24px;
+    border-radius: 12px;
 }
 
-.game-info-flex>div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+.game-info-container {
+    text-align: center;
+    flex-grow: 1;
+    margin: 0 24px;
 }
 
-/* === Status Dot for TPU/Camera === */
-.status-dot {
-    font-size: 2.1em;
-}
-
-.status-dot.pulse {
-    animation: pulse-red 1.5s infinite;
-}
-
-@keyframes pulse-red {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.3;
-    }
-}
-
-/* === Responsive === */
-@media (max-width: 800px) {
-    .game-info-flex {
-        flex-direction: column;
-    }
-}
-
-/* === Game Info Alignment (NEW) === */
 .info-line {
-    display: grid;
-    /* Creates 3 columns: left, separator, right */
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    /* Adjust gap as needed */
-    gap: 0.75em;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+#match {
+    font-size: 1.1rem;
+    color: #757575;
+}
+
+.dark-theme #match {
+    color: #a1a1aa;
+}
+
+#score {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 8px 0;
+}
+
+#result {
+    font-size: 1.2rem;
+    min-height: 24px;
+    /* Prevent layout shift */
+}
+
+.info-line .separator {
+    margin: 0 16px;
+    font-weight: 400;
+}
+
+.info-line .left,
+.info-line .right {
+    flex-basis: 45%;
 }
 
 .info-line .left {
@@ -163,6 +125,22 @@ body.dark-theme #confidence {
     text-align: left;
 }
 
-.info-line .separator {
-    text-align: center;
+.status-dot {
+    font-size: 1.5rem;
+    line-height: 1;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
