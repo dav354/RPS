@@ -303,11 +303,12 @@ def get_game_state_route():
 
 @app.route("/reset_game")
 def reset_game_route_api():
+    global GAME_STATE # Add this line
     reset_game()
     gesture_collector.reset()
+    GAME_STATE = "IDLE" # Explicitly set state back to IDLE
     log("[🔄] Game has been reset.")
     return jsonify({"status": "reset", "message": "Game reset."})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80, threaded=True, debug=False)
