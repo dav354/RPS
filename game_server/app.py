@@ -6,7 +6,7 @@ from collections import deque
 import cv2
 import mediapipe as mp
 
-from utils.game_logic import prepare_round, game_state, play_round, reset_game
+from utils.game_logic import prepare_round, game_manager, play_round, reset_game
 from utils.draw import draw_landmarks
 from utils.gesture_buffer import GestureCollector
 from utils.camera import setup_camera, get_display_frame
