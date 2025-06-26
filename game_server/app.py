@@ -18,7 +18,7 @@ from utils.tpu import load_tpu_model, run_inference
 
 # === Configuration ===
 PEPPER_IP = os.environ.get("PEPPER_IP")
-camera_source = f"{PEPPER_IP}/video_feed"
+camera_source = f"http://{PEPPER_IP}:5001/video_feed" if PEPPER_IP else 0
 label_map = ["none", "rock", "paper", "scissors"]
 gesture_collector = GestureCollector(duration=2.0)
 PREDICTION_HISTORY = deque(maxlen=5)
@@ -63,43 +63,39 @@ def align_landmarks_3d(landmarks):
     Aligns 3D hand landmarks:
     1. Translates the wrist (landmark 0) to the origin.
     2. Rotates the hand to a more canonical orientation.
-       This example uses the vector from wrist (0) to middle finger base (9) for alignment.
-       A more robust alignment might involve more points or PCA.
     """
     if landmarks.shape[1] != 3:
         raise ValueError("Landmarks must be 3D (x, y, z) for 3D alignment.")
 
-    # Translate the wrist to the origin (landmark 0 is the wrist)
+    # Translate the wrist to the origin
     translated_landmarks = landmarks - landmarks[0]
 
     # Calculate the vector from wrist (0) to middle finger base (9)
-    # This vector will be aligned with the Y-axis (or similar)
     v_wrist_mid_finger = translated_landmarks[9] - translated_landmarks[0]
     v_wrist_mid_finger_norm = np.linalg.norm(v_wrist_mid_finger)
 
-    if v_wrist_mid_finger_norm < 1e-6: # Avoid division by zero
+    if v_wrist_mid_finger_norm < 1e-6:
         return translated_landmarks
 
     # Normalize this vector
     v_norm = v_wrist_mid_finger / v_wrist_mid_finger_norm
 
-    # Create target vectors (e.g., align v_norm with the Y-axis)
+    # Target vector (aligning with Y-axis)
     target_y_axis = np.array([0, 1, 0])
-    # Compute the rotation axis and angle
     rotation_axis = np.cross(v_norm, target_y_axis)
     rotation_axis_norm = np.linalg.norm(rotation_axis)
 
-    if rotation_axis_norm < 1e-6: # Vectors are already aligned or opposite
-        if np.dot(v_norm, target_y_axis) < 0: # Opposite, rotate 180 degrees
+    if rotation_axis_norm < 1e-6:
+        if np.dot(v_norm, target_y_axis) < 0:
             rotation_angle = np.pi
-            rotation_axis = np.array([1, 0, 0]) # Arbitrary axis for 180 deg
+            rotation_axis = np.array([1, 0, 0])
         else:
-            return translated_landmarks # Already aligned
+            return translated_landmarks
     else:
         rotation_axis = rotation_axis / rotation_axis_norm
         rotation_angle = np.arccos(np.dot(v_norm, target_y_axis))
 
-    # Build rotation matrix using Rodrigues' rotation formula
+    # Rodrigues' rotation formula
     K = np.array([
         [0, -rotation_axis[2], rotation_axis[1]],
         [rotation_axis[2], 0, -rotation_axis[0]],
@@ -109,37 +105,30 @@ def align_landmarks_3d(landmarks):
 
     # Apply rotation
     aligned_landmarks = np.dot(translated_landmarks, R.T)
-
     return aligned_landmarks
 
 def _process_hand_gestures(rgb_frame):
     gesture, confidence, infer_ms = "No Hand", 0.0, 0.0
-    landmark_pts_2d = None # Will be used for drawing
+    landmark_pts_2d = None
     results = mp_hands.process(rgb_frame)
 
     if results.multi_hand_landmarks:
         hand_landmarks = results.multi_hand_landmarks[0]
-
-        # --- KEY CHANGE: Extracting x, y, and z coordinates ---
+        
+        # Extract 3D coordinates
         coords_3d = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark], dtype=np.float32)
-
-        # Apply 3D alignment, mirroring the training script
         coords_3d_aligned = align_landmarks_3d(coords_3d)
 
-        # Normalize coordinates to [0, 1] range after alignment, mirroring training script
+        # Normalize coordinates
         coords_min = coords_3d_aligned.min(axis=0)
         coords_max = coords_3d_aligned.max(axis=0)
         coords_range = coords_max - coords_min
-
-        # Avoid division by zero for dimensions with no variation
         coords_normalized = (coords_3d_aligned - coords_min) / np.where(coords_range > 0, coords_range, 1)
-
-        # Flatten the 3D coordinates for the model input
+        
         flat_coords = coords_normalized.flatten()
-
-        # For drawing, you might want to use the original 2D (x,y) from the raw landmarks
+        
+        # Get 2D pixel coordinates for drawing
         landmark_pts_2d = np.array([[lm.x * rgb_frame.shape[1], lm.y * rgb_frame.shape[0]] for lm in hand_landmarks.landmark], dtype=np.int32)
-
 
         dequantized_preds, current_infer_ms = run_inference(interpreter, input_details, output_details, flat_coords)
         infer_ms = current_infer_ms
@@ -165,14 +154,6 @@ def _process_hand_gestures(rgb_frame):
     return gesture, confidence, infer_ms, landmark_pts_2d
 
 
-def _check_and_finalize_round():
-    if gesture_collector.is_done():
-        final_gesture = gesture_collector.get_most_common()
-        log(f"[🧠] Round decided. Most common gesture: {final_gesture}")
-        play_round(final_gesture)
-        gesture_collector.reset()
-
-
 def generate_frames():
     prev_time = time.time()
 
@@ -183,8 +164,8 @@ def generate_frames():
             ok_enc, buf = cv2.imencode(".jpg", frame)
             if ok_enc:
                 yield (
-                        b"--frame\r\n"
-                        b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+                    b"--frame\r\n"
+                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
                 )
             time.sleep(1)
             continue
@@ -198,22 +179,22 @@ def generate_frames():
         gesture = "N/A"
         confidence = 0.0
         infer_ms = 0.0
-        landmark_pts_to_draw = None # Renamed to avoid confusion with internal 3D coords
+        landmark_pts_to_draw = None
 
         if not TPU_OK:
-            cv2.putText(frame, "TPU NOT AVAILABLE", (10, frame.shape[0] - 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2, cv2.LINE_AA)
             gesture = "TPU Offline"
-        elif not gesture_collector.collecting:
-            gesture = "Idle"
-        else:
+        elif gesture_collector.collecting:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             gesture, confidence, infer_ms, landmark_pts_to_draw = _process_hand_gestures(rgb_frame)
             if landmark_pts_to_draw is not None:
-                # Pass the original frame dimensions for drawing
                 draw_landmarks(frame, landmark_pts_to_draw, frame.shape[1], frame.shape[0])
-            _check_and_finalize_round()
-
+        elif game_manager.state['game_over']:
+             gesture = "Game Over"
+        elif game_manager.round > 0:
+             gesture = "Next round..."
+        else:
+            gesture = "Idle"
+            
         latest_stats.update({
             "gesture": gesture,
             "confidence": round(confidence, 2),
@@ -232,28 +213,51 @@ def generate_frames():
             continue
 
         yield (
-                b"--frame\r\n"
-                b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
         )
 
+def run_game_flow():
+    """
+    Manages the entire game flow of 3 rounds sequentially.
+    This function runs in a background thread.
+    """
+    log("[🚀] Starting new game flow...")
 
-def run_three_rounds():
-    for _ in range(3):
-        if game_manager.state["round"] >= 3:
-            game_manager.state["game_over"] = True
+    for i in range(game_manager.total_rounds):
+        if game_manager.state["game_over"]:
+            log(f"[🏁] Game ended early on round {i} due to score.")
             break
 
-        if not gesture_collector.collecting:
-            gesture_collector.start()
-            prepare_round()
-            log("[🎬] Round started: collecting gestures")
+        # 1. Prepare the round
+        prepare_round()
+        log(f"[🎬] Round {game_manager.state['round']}/{game_manager.total_rounds} started.")
 
-        # Wait for collection/round to complete before continuing
-        while gesture_collector.collecting:
-            time.sleep(0.5)
+        # 2. Collect gestures for a fixed duration
+        gesture_collector.start()
+        log(f"[👂] Collecting gestures for {gesture_collector.duration} seconds...")
+        time.sleep(gesture_collector.duration)
 
-        # Add a 3-second delay before next round
+        # 3. Finalize the round with the most common gesture
+        final_gesture = gesture_collector.get_most_common()
+        log(f"[🧠] Round decided. Most common gesture: {final_gesture}")
+        play_round(final_gesture)
+        gesture_collector.reset() # Stop collecting and clear buffer
+
+        # 4. Check if the game is over after the round
+        if game_manager.state["game_over"]:
+            log("[🏁] Game over condition met.")
+            break
+        
+        # 5. Wait before the next round for better user experience
+        log("[⏳] Cooldown before next round...")
         time.sleep(3)
+
+    # Final check to ensure game over state is set if all rounds are played
+    if not game_manager.state["game_over"]:
+        game_manager._check_game_over(force_end=True)
+
+    log("[🎉] Game flow finished.")
 
 
 # === Routes ===
@@ -272,23 +276,27 @@ def gesture_data_route():
     return jsonify(latest_stats)
 
 
-@app.route("/start_round")
-def start_round_route_api():
+@app.route("/start_game")
+def start_game_route_api():
     if not TPU_OK:
-        log("[❌] Cannot start round: TPU not available.")
-        return jsonify({"status": "no_tpu", "message": "TPU not available. Cannot start round."})
+        log("[❌] Cannot start game: TPU not available.")
+        return jsonify({"status": "no_tpu", "message": "TPU not available."})
 
     if not cap.isOpened():
-        log("[❌] Cannot start round: Camera not available.")
-        return jsonify({"status": "no_camera", "message": "Camera not available. Cannot start round."})
+        log("[❌] Cannot start game: Camera not available.")
+        return jsonify({"status": "no_camera", "message": "Camera not available."})
 
-    if gesture_collector.collecting:
-        return jsonify({"status": "already_collecting", "message": "Already collecting gestures."})
+    # Check if a game is already in progress
+    if gesture_collector.collecting or (game_manager.round > 0 and not game_manager.state["game_over"]):
+        log("[⚠️] Cannot start new game: A game is already in progress.")
+        return jsonify({"status": "already_running", "message": "A game is already in progress."})
 
-    # Launch thread for 3 rounds
-    threading.Thread(target=run_three_rounds, daemon=True).start()
-    return jsonify({"status": "started", "message": "Three rounds started in background."})
+    # Reset game state for a fresh start
+    reset_game()
 
+    # Launch the main game flow in a background thread
+    threading.Thread(target=run_game_flow, daemon=True).start()
+    return jsonify({"status": "started", "message": "New game started in background."})
 
 
 @app.route("/game_state")
@@ -298,6 +306,7 @@ def get_game_state_route():
 
 @app.route("/reset_game")
 def reset_game_route_api():
+    # The game logic thread will see the 'game_over' flag and stop itself.
     reset_game()
     gesture_collector.reset()
     log("[🔄] Game has been reset.")
