@@ -27,6 +27,7 @@ except Exception as e:
     print("[ERROR] Error connecting to NAOqi services:", e)
     exit(1)
 
+GESTURE_HOLD_DURATION = 4
 
 # === Autonomous Behavior Control ===
 def disable_autonomous_behaviors():
@@ -109,7 +110,7 @@ def do_rock():
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
                              [1.0, 0.5, 0.0, 0.0], 0.2)
-    time.sleep(4)
+    time.sleep(GESTURE_HOLD_DURATION
     posture_service.goToPosture("StandInit", 0.5)
 
 @run_in_thread
@@ -119,7 +120,7 @@ def do_paper():
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
                              [0.8, 0.0, 1.0, -1.2, 1.0], 0.2)
-    time.sleep(4)
+    time.sleep(GESTURE_HOLD_DURATION)
     posture_service.goToPosture("StandInit", 0.5)
 
 @run_in_thread
@@ -129,7 +130,7 @@ def do_scissors():
     motion_service.setStiffnesses("RArm", 1.0)
     motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
                              [0.8, 0.0, 1.0, 0.0, 1.0], 0.2)
-    time.sleep(4)
+    time.sleep(GESTURE_HOLD_DURATION)
     posture_service.goToPosture("StandInit", 0.5)
 
 @run_in_thread
@@ -137,7 +138,7 @@ def do_swing():
     print("[ACTION] Performing: swing")
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
-    for _ in range(4):
+    for _ in range(GESTURE_HOLD_DURATION):
         motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [0.4, 1.1], 0.3)
         time.sleep(0.25)
         motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [1.3, 0.4], 0.3)
