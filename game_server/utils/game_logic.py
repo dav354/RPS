@@ -11,6 +11,26 @@ ROBOT_API_BASE_URL = os.environ.get("PEPPER_IP")
 COOLDOWN = 3  # Seconds between actions/rounds
 TOTAL_ROUNDS = 3 # Total rounds per game
 
+PLAYER_WIN_RESPONSES = [
+    "You hacked my mainframe... or just got lucky!",
+    "You beat me! That's not in my code!",
+    "I’m going to blame lag.",
+    "You got skills. Or maybe I'm glitchy.",
+    "I’ll get you next time, human!",
+]
+
+COMPUTER_WIN_RESPONSES = [
+    "Robot wins! Beep boop victory dance!",
+    "Flawless execution. Upgrade recommended.",
+    "Too easy. Maybe next time, human!",
+    "That was efficient. For me.",
+    "I eat paper-rock-scissors for bytes!",
+    "I win! Resistance is futile.",
+    "My code is strong, your luck is weak!",
+    "Robot 1, Human 0. Again.",
+    "Game over, human. Try again?",
+]
+
 # === Global Game State (managed by GameManager instance) ===
 # This will be updated by the GameManager instance
 game_state = {
@@ -195,10 +215,10 @@ class GameManager:
             final_winner = ""
             if self._score["player"] > self._score["computer"]:
                 final_winner = "Player"
-                call_robot_speech_api("Fuck you! You won the game!")
+                call_robot_speech_api(random.choice(PLAYER_WIN_RESPONSES))
             elif self._score["computer"] > self._score["player"]:
                 final_winner = "Computer"
-                call_robot_speech_api("EZ PEAZY LEMON SQUEEZY! I WON Bitch")
+                call_robot_speech_api(random.choice(COMPUTER_WIN_RESPONSES))
             else:
                 final_winner = "It's a tie!"
                 call_robot_speech_api("The game is a tie!")
