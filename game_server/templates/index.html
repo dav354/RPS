@@ -45,10 +45,11 @@
     nav {
       background-color: var(--nav-bg);
       color: var(--nav-text);
-      box-shadow: 0 2px 4px 0 rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
     }
 
-    .brand-logo, .nav-icons li i {
+    .brand-logo,
+    .nav-icons li i {
       color: var(--nav-text);
     }
 
@@ -77,7 +78,7 @@
       background-color: var(--card-bg);
       color: var(--text-color);
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 
     /* Game Control Panel Styling */
@@ -101,31 +102,45 @@
       font-weight: 500;
       color: var(--text-color);
     }
+
     #match {
       font-size: 1.1rem;
       color: #757575;
     }
+
     .dark-theme #match {
       color: #a1a1aa;
     }
+
     #score {
       font-size: 2.5rem;
       font-weight: 700;
       margin: 8px 0;
     }
+
     #result {
       font-size: 1.2rem;
-      min-height: 24px; /* Prevent layout shift */
+      min-height: 24px;
+      /* Prevent layout shift */
     }
+
     .info-line .separator {
       margin: 0 16px;
       font-weight: 400;
     }
-    .info-line .left, .info-line .right {
+
+    .info-line .left,
+    .info-line .right {
       flex-basis: 45%;
     }
-    .info-line .left { text-align: right; }
-    .info-line .right { text-align: left; }
+
+    .info-line .left {
+      text-align: right;
+    }
+
+    .info-line .right {
+      text-align: left;
+    }
 
     .status-dot {
       font-size: 1.5rem;
@@ -134,273 +149,282 @@
     }
 
     @keyframes pulse {
-      0% { opacity: 1; }
-      50% { opacity: 0.3; }
-      100% { opacity: 1; }
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+
+      100% {
+        opacity: 1;
+      }
     }
   </style>
 </head>
 
 
 <body>
-<nav>
-  <div class="nav-wrapper container">
-    <a href="#" class="brand-logo">Rock Paper Scissors</a>
-    <ul class="right nav-icons">
-      <li><span id="tpu-indicator" title="System status"></span></li>
-      <li><i id="darkModeToggle" class="material-icons dark-toggle">brightness_6</i></li>
-    </ul>
-  </div>
-</nav>
-
-<div class="container" style="margin-top: 32px;">
-  <div class="row" style="display:flex; flex-wrap: wrap;">
-    <!-- Camera Feed Column -->
-    <div style="flex: 2; min-width: 300px; padding-right:16px;">
-      <img src="{{ url_for('video_feed_route') }}" class="responsive-img" id="camera-stream"
-           onerror="this.onerror=null;this.src='https://placehold.co/640x480/e0e0e0/757575?text=Camera+Off';" />
+  <nav>
+    <div class="nav-wrapper container">
+      <a href="#" class="brand-logo">Rock Paper Scissors</a>
+      <ul class="right nav-icons">
+        <li><span id="tpu-indicator" title="System status"></span></li>
+        <li><i id="darkModeToggle" class="material-icons dark-toggle">brightness_6</i></li>
+      </ul>
     </div>
+  </nav>
 
-    <!-- Stats Column -->
-    <div style="flex: 1; min-width: 250px;">
-      <div class="card" style="margin-bottom: 16px;">
-        <div class="card-content">
-          <p><strong>Type:</strong> <span id="gesture">…</span></p>
-          <p><strong>Confidence:</strong> <span id="confidence">…</span></p>
-        </div>
+  <div class="container" style="margin-top: 32px;">
+    <div class="row" style="display:flex; flex-wrap: wrap;">
+      <!-- Camera Feed Column -->
+      <div style="flex: 2; min-width: 300px; padding-right:16px;">
+        <img src="{{ url_for('video_feed_route') }}" class="responsive-img" id="camera-stream"
+          onerror="this.onerror=null;this.src='https://placehold.co/640x480/e0e0e0/757575?text=Camera+Off';" />
       </div>
-      <div class="card" style="margin-bottom: 16px;">
-        <div class="card-content">
-          <p><strong>FPS:</strong> <span id="fps">…</span></p>
-          <p><strong>Inference (ms):</strong> <span id="infer">…</span></p>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-content">
-          <p><strong>CPU %:</strong> <span id="cpu">…</span></p>
-          <p><strong>CPU Temp (°C):</strong> <span id="cpu_temp">…</span></p>
-          <p><strong>RAM:</strong> <span id="ram">…</span></p>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Game Control Panel -->
-  <div class="card game-control-panel">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <button id="playBtn" class="btn-large green waves-effect waves-light">
-        <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
-      </button>
-
-      <div class="game-info-container">
-        <div id="match" class="info-line">
-          <span class="left">Computer</span>
-          <span class="separator">vs</span>
-          <span class="right">Player (Round 1/3)</span>
+      <!-- Stats Column -->
+      <div style="flex: 1; min-width: 250px;">
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-content">
+            <p><strong>Type:</strong> <span id="gesture">…</span></p>
+            <p><strong>Confidence:</strong> <span id="confidence">…</span></p>
+          </div>
         </div>
-        <div id="score" class="info-line">
-          <span class="left">0</span>
-          <span class="separator">:</span>
-          <span class="right">0</span>
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-content">
+            <p><strong>FPS:</strong> <span id="fps">…</span></p>
+            <p><strong>Inference (ms):</strong> <span id="infer">…</span></p>
+          </div>
         </div>
-        <div id="result" class="info-line">
-          <span class="left">...</span>
-          <span class="separator"></span>
-          <span class="right">...</span>
+        <div class="card">
+          <div class="card-content">
+            <p><strong>CPU %:</strong> <span id="cpu">…</span></p>
+            <p><strong>CPU Temp (°C):</strong> <span id="cpu_temp">…</span></p>
+            <p><strong>RAM:</strong> <span id="ram">…</span></p>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Game Control Panel -->
+    <div class="card game-control-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button id="playBtn" class="btn-large green waves-effect waves-light">
+          <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
+        </button>
+
+        <div class="game-info-container">
+          <div id="match" class="info-line">
+            <span class="left">Computer</span>
+            <span class="separator">vs</span>
+            <span class="right">Player (Round 1/3)</span>
+          </div>
+          <div id="score" class="info-line">
+            <span class="left">0</span>
+            <span class="separator">:</span>
+            <span class="right">0</span>
+          </div>
+          <div id="result" class="info-line">
+            <span class="left">...</span>
+            <span class="separator"></span>
+            <span class="right">...</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // --- DOM Element References ---
-    const body = document.body;
-    const darkToggle = document.getElementById('darkModeToggle');
-    const playBtn = document.getElementById("playBtn");
-    const playIcon = document.getElementById("playBtnIcon");
-    const tpuIndicator = document.getElementById('tpu-indicator');
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // --- DOM Element References ---
+      const body = document.body;
+      const darkToggle = document.getElementById('darkModeToggle');
+      const playBtn = document.getElementById("playBtn");
+      const playIcon = document.getElementById("playBtnIcon");
+      const tpuIndicator = document.getElementById('tpu-indicator');
 
-    // --- Game State Variables ---
-    let gameActive = false;
-    let pollInterval;
-    let resetTimerScheduled = false;
-    let nextRoundTimerScheduled = false; // Flag to prevent multiple "next round" timers
+      // --- Game State Variables ---
+      let gameActive = false;
+      let pollInterval;
+      let resetTimerScheduled = false;
+      let nextRoundTimerScheduled = false; // Flag to prevent multiple "next round" timers
 
-    // --- Dark Mode Logic ---
-    const applyDarkMode = (isDark) => {
-      if (isDark) {
-        body.classList.add('dark-theme');
-        darkToggle.textContent = 'brightness_7';
-      } else {
-        body.classList.remove('dark-theme');
-        darkToggle.textContent = 'brightness_4';
-      }
-    };
-
-    const toggleDarkMode = () => {
-      const isDark = body.classList.toggle('dark-theme');
-      localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
-      applyDarkMode(isDark);
-    };
-
-    // Apply dark mode on initial load
-    if (localStorage.getItem('darkMode') === 'enabled') {
-      applyDarkMode(true);
-    } else {
-      applyDarkMode(false);
-    }
-    darkToggle.addEventListener('click', toggleDarkMode);
-
-    // --- Data Fetching ---
-    async function fetchStats() {
-      try {
-        const res = await fetch('/gesture_data');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const s = await res.json();
-
-        // Update system status indicator
-        if (s.tpu && s.camera) {
-          tpuIndicator.innerHTML = "";
-          tpuIndicator.title = "System OK";
+      // --- Dark Mode Logic ---
+      const applyDarkMode = (isDark) => {
+        if (isDark) {
+          body.classList.add('dark-theme');
+          darkToggle.textContent = 'brightness_7';
         } else {
-          let reason = (!s.tpu && !s.camera)
-                  ? "TPU and Camera not available"
-                  : (!s.tpu ? "TPU not available" : "Camera not available");
-          tpuIndicator.innerHTML = `<span class="status-dot" style="color:var(--status-dot-error);">●</span>`;
-          tpuIndicator.title = reason;
+          body.classList.remove('dark-theme');
+          darkToggle.textContent = 'brightness_4';
         }
+      };
 
-        // Update stats display
-        document.getElementById('gesture').innerText = s.gesture;
-        document.getElementById('confidence').innerText = s.confidence;
-        document.getElementById('fps').innerText = s.fps;
-        document.getElementById('infer').innerText = s.inference_ms;
-        document.getElementById('cpu').innerText = s.cpu;
-        document.getElementById('ram').innerText = s.ram;
-        document.getElementById('cpu_temp').innerText = s.cpu_temp || 'N/A';
-      } catch (error) {
-        console.error("Failed to fetch stats:", error);
-        tpuIndicator.innerHTML = `<span class="status-dot" style="color:var(--status-dot-error);">●</span>`;
-        tpuIndicator.title = "Failed to fetch stats";
-      }
-    }
+      const toggleDarkMode = () => {
+        const isDark = body.classList.toggle('dark-theme');
+        localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+        applyDarkMode(isDark);
+      };
 
-    // --- Game Logic ---
-    function stopPolling() {
-      clearInterval(pollInterval);
-      pollInterval = null;
-    }
-
-    function updateButton() {
-      playBtn.classList.toggle("green", !gameActive);
-      playBtn.classList.toggle("red", gameActive);
-      const iconText = gameActive ? "stop" : "play_arrow";
-      const btnText = gameActive ? "Stop Game" : "Start Game";
-      playBtn.innerHTML = `<i class="material-icons left" id="playBtnIcon">${iconText}</i>${btnText}`;
-    }
-
-    function resetUI(totalRounds = 3) {
-      document.querySelector("#match .right").textContent = `Player (Round 1/${totalRounds})`;
-      document.querySelector("#score .left").textContent = `0`;
-      document.querySelector("#score .right").textContent = `0`;
-      document.querySelector("#result .left").textContent = `...`;
-      document.querySelector("#result .right").textContent = `...`;
-    }
-
-    async function toggleGame() {
-      // Stop any pending timers when toggling game state
-      resetTimerScheduled = false;
-      nextRoundTimerScheduled = false;
-
-      if (gameActive) {
-        gameActive = false; // Set to false immediately to stop any polling logic
-        await fetch("/reset_game");
-        stopPolling();
+      // Apply dark mode on initial load
+      if (localStorage.getItem('darkMode') === 'enabled') {
+        applyDarkMode(true);
       } else {
-        await fetch("/reset_game");
-        await fetch("/start_round");
-        gameActive = true;
-        startPolling();
+        applyDarkMode(false);
       }
-      updateButton();
-    }
+      darkToggle.addEventListener('click', toggleDarkMode);
 
-    function startPolling() {
-      if (pollInterval) return; // Prevent multiple intervals
+      // --- Data Fetching ---
+      async function fetchStats() {
+        try {
+          const res = await fetch('/gesture_data');
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          const s = await res.json();
 
-      pollInterval = setInterval(() => {
-        if (!gameActive) {
-          stopPolling();
-          return;
+          // Update system status indicator
+          if (s.tpu && s.camera) {
+            tpuIndicator.innerHTML = "";
+            tpuIndicator.title = "System OK";
+          } else {
+            let reason = (!s.tpu && !s.camera)
+              ? "TPU and Camera not available"
+              : (!s.tpu ? "TPU not available" : "Camera not available");
+            tpuIndicator.innerHTML = `<span class="status-dot" style="color:var(--status-dot-error);">●</span>`;
+            tpuIndicator.title = reason;
+          }
+
+          // Update stats display
+          document.getElementById('gesture').innerText = s.gesture;
+          document.getElementById('confidence').innerText = s.confidence;
+          document.getElementById('fps').innerText = s.fps;
+          document.getElementById('infer').innerText = s.inference_ms;
+          document.getElementById('cpu').innerText = s.cpu;
+          document.getElementById('ram').innerText = s.ram;
+          document.getElementById('cpu_temp').innerText = s.cpu_temp || 'N/A';
+        } catch (error) {
+          console.error("Failed to fetch stats:", error);
+          tpuIndicator.innerHTML = `<span class="status-dot" style="color:var(--status-dot-error);">●</span>`;
+          tpuIndicator.title = "Failed to fetch stats";
         }
+      }
 
-        fetch("/game_state")
-                .then(res => res.json())
-                .then(state => {
-                  if (!gameActive) return; // Double-check in case game was stopped during fetch
+      // --- Game Logic ---
+      function stopPolling() {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
 
-                  const { score, current_round, total_rounds, computer_move, player_move, game_over } = state;
+      function updateButton() {
+        playBtn.classList.toggle("green", !gameActive);
+        playBtn.classList.toggle("red", gameActive);
+        const iconText = gameActive ? "stop" : "play_arrow";
+        const btnText = gameActive ? "Stop Game" : "Start Game";
+        playBtn.innerHTML = `<i class="material-icons left" id="playBtnIcon">${iconText}</i>${btnText}`;
+      }
 
-                  // Update UI
-                  document.querySelector("#match .right").textContent = `Player (Round ${Math.min(current_round, total_rounds)}/${total_rounds})`;
-                  document.querySelector("#score .left").textContent = score.computer;
-                  document.querySelector("#score .right").textContent = score.player;
-                  document.querySelector("#result .left").textContent = computer_move;
-                  document.querySelector("#result .right").textContent = player_move;
+      function resetUI(totalRounds = 3) {
+        document.querySelector("#match .right").textContent = `Player (Round 1/${totalRounds})`;
+        document.querySelector("#score .left").textContent = `0`;
+        document.querySelector("#score .right").textContent = `0`;
+        document.querySelector("#result .left").textContent = `...`;
+        document.querySelector("#result .right").textContent = `...`;
+      }
 
-                  // --- Round/Game Over Logic ---
-                  if (game_over) {
-                    stopPolling();
-                    gameActive = false;
-                    updateButton();
+      async function toggleGame() {
+        // Stop any pending timers when toggling game state
+        resetTimerScheduled = false;
+        nextRoundTimerScheduled = false;
 
-                    if (!resetTimerScheduled) {
-                      resetTimerScheduled = true;
-                      setTimeout(() => {
-                        fetch("/reset_game").then(() => {
-                          resetUI(total_rounds);
-                          resetTimerScheduled = false;
-                        });
-                      }, 5000); // 5-second delay before resetting a finished game
-                    }
+        if (gameActive) {
+          gameActive = false; // Set to false immediately to stop any polling logic
+          await fetch("/reset_game");
+          stopPolling();
+        } else {
+          await fetch("/reset_game");
+          await fetch("/start_round");
+          gameActive = true;
+          startPolling();
+        }
+        updateButton();
+      }
 
-                  } else {
-                    // Check if the round has been finalized (both players have made a move)
-                    const roundProcessed = player_move !== "none" && computer_move !== "none";
+      function startPolling() {
+        if (pollInterval) return; // Prevent multiple intervals
 
-                    if (roundProcessed && !nextRoundTimerScheduled) {
-                      nextRoundTimerScheduled = true; // Set flag to prevent re-triggering
-                      console.log(`Round ${current_round} finished. Scheduling next round in 4 seconds.`);
+        pollInterval = setInterval(() => {
+          if (!gameActive) {
+            stopPolling();
+            return;
+          }
 
-                      // **START NEXT ROUND AFTER 4 SECONDS**
-                      setTimeout(() => {
-                        if (!gameActive) return; // Don't start next round if game was stopped during the timeout
-                        console.log("Timer elapsed. Starting next round.");
-                        fetch("/start_round").then(() => {
-                          // Reset flag after successfully telling the backend to start
-                          nextRoundTimerScheduled = false;
-                        });
-                      }, 4000); // 4-second delay
-                    }
-                  }
-                })
-                .catch(error => {
-                  console.error("Error fetching game state:", error);
-                  stopPolling();
-                  gameActive = false;
-                  updateButton();
-                });
-      }, 1000); // Poll every 1 second
-    }
+          fetch("/game_state")
+            .then(res => res.json())
+            .then(state => {
+              if (!gameActive) return; // Double-check in case game was stopped during fetch
 
-    // --- Initial Setup ---
-    playBtn.addEventListener("click", toggleGame);
-    setInterval(fetchStats, 2000); // Fetch system stats periodically
-    fetchStats(); // Initial fetch
-  });
-</script>
+              const { score, current_round, total_rounds, computer_move, player_move, game_over } = state;
+
+              // Update UI
+              document.querySelector("#match .right").textContent = `Player (Round ${Math.min(current_round, total_rounds)}/${total_rounds})`;
+              document.querySelector("#score .left").textContent = score.computer;
+              document.querySelector("#score .right").textContent = score.player;
+              document.querySelector("#result .left").textContent = computer_move;
+              document.querySelector("#result .right").textContent = player_move;
+
+              // --- Round/Game Over Logic ---
+              if (game_over) {
+                stopPolling();
+                gameActive = false;
+                updateButton();
+
+                if (!resetTimerScheduled) {
+                  resetTimerScheduled = true;
+                  setTimeout(() => {
+                    fetch("/reset_game").then(() => {
+                      resetUI(total_rounds);
+                      resetTimerScheduled = false;
+                    });
+                  }, 5000); // 5-second delay before resetting a finished game
+                }
+
+              } else {
+                // Check if the round has been finalized (both players have made a move)
+                const roundProcessed = player_move !== "none" && computer_move !== "none";
+
+                if (roundProcessed && !nextRoundTimerScheduled) {
+                  nextRoundTimerScheduled = true; // Set flag to prevent re-triggering
+                  console.log(`Round ${current_round} finished. Scheduling next round in 4 seconds.`);
+
+                  // **START NEXT ROUND AFTER 4 SECONDS**
+                  setTimeout(() => {
+                    if (!gameActive) return; // Don't start next round if game was stopped during the timeout
+                    console.log("Timer elapsed. Starting next round.");
+                    fetch("/start_round").then(() => {
+                      // Reset flag after successfully telling the backend to start
+                      nextRoundTimerScheduled = false;
+                    });
+                  }, 4000); // 4-second delay
+                }
+              }
+            })
+            .catch(error => {
+              console.error("Error fetching game state:", error);
+              stopPolling();
+              gameActive = false;
+              updateButton();
+            });
+        }, 1000); // Poll every 1 second
+      }
+
+      // --- Initial Setup ---
+      playBtn.addEventListener("click", toggleGame);
+      setInterval(fetchStats, 2000); // Fetch system stats periodically
+      fetchStats(); // Initial fetch
+    });
+  </script>
 </body>
+
 </html>
