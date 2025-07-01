@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from flask import Flask, Response, request, jsonify
 import threading
+import atexit
 
 app = Flask(__name__)
 
@@ -30,83 +31,144 @@ except Exception as e:
 
 GESTURE_HOLD_DURATION = 4
 
+# --- Camera Constants ---
+CAMERA_INDEX = 0   # 0 = top, 1 = bottom
+RESOLUTION = 2     # 2 = 640x480
+COLOR_SPACE = 13   # 13 = BGR
+FPS = 15           # Reduced FPS to lower load
+
+# --- Optimized Camera Thread ---
+class CameraThread(threading.Thread):
+    def __init__(self):
+        super(CameraThread, self).__init__()
+        self.daemon = True
+        self.name_id = None
+        self.latest_frame = None
+        self.lock = threading.Lock()
+        self.running = True
+
+    def run(self):
+        print("[INFO] Starting camera thread...")
+        try:
+            self.name_id = video_service.subscribeCamera(
+                "flask_cam_thread", CAMERA_INDEX, RESOLUTION, COLOR_SPACE, FPS
+            )
+            while self.running:
+                image = video_service.getImageRemote(self.name_id)
+                if image is None:
+                    time.sleep(1.0 / FPS)
+                    continue
+
+                width, height, _, array = image[0], image[1], image[2], image[6]
+                img = np.frombuffer(array, dtype=np.uint8).reshape((height, width, 3))
+                ret, jpeg = cv2.imencode('.jpg', img)
+
+                if ret:
+                    with self.lock:
+                        self.latest_frame = jpeg.tobytes()
+                time.sleep(1.0 / FPS)
+        except Exception as e:
+            print("[ERROR] Camera thread failed:", e)
+        finally:
+            if self.name_id:
+                video_service.unsubscribe(self.name_id)
+            print("[INFO] Camera thread stopped.")
+
+    def stop(self):
+        self.running = False
+        # No need to join a daemon thread, it will exit with the main program
+
+    def get_frame(self):
+        with self.lock:
+            return self.latest_frame
+
+# --- Event-Driven Speech Recognition ---
+class SpeechRecognitionHandler(object):
+    def __init__(self):
+        self.word_heard = None
+        self.event = threading.Event()
+        self.subscriber = None
+        try:
+            self.subscriber = memory_service.subscriber("WordRecognized")
+            self.connection = self.subscriber.signal.connect(self.on_word_recognized)
+            print("[INFO] ASR event handler connected.")
+        except Exception as e:
+            print("[ERROR] Could not create ASR subscriber:", e)
+            self.subscriber = None
+
+    def on_word_recognized(self, value):
+        if isinstance(value, list) and len(value) >= 2 and value[1] > 0.4:
+            print("[INFO] Word recognized callback:", value[0])
+            self.word_heard = value[0]
+            self.event.set()
+
+    def listen(self, vocabulary, timeout=10):
+        if not self.subscriber:
+            raise RuntimeError("ASR handler not connected.")
+        self.word_heard = None
+        self.event.clear()
+        try:
+            asr_service.setLanguage("English")
+            asr_service.setVocabulary(vocabulary, False)
+            asr_service.startDetection()
+            print("[INFO] Listening for words (event-driven)...")
+            triggered = self.event.wait(timeout)
+            asr_service.stopDetection()
+            return self.word_heard if triggered else None
+        finally:
+            asr_service.stopDetection()
+
+    def disconnect(self):
+        if self.subscriber and self.connection:
+            try:
+                self.subscriber.signal.disconnect(self.connection)
+                print("[INFO] ASR event handler disconnected.")
+            except Exception as e:
+                print("[ERROR] Could not disconnect ASR subscriber:", e)
+
+# --- Global Instances ---
+camera_thread = CameraThread()
+asr_handler = SpeechRecognitionHandler()
+
 # --- Integrated Head Control Logic ---
 def freeze_head():
-    """Sets head stiffness to 1.0 to lock it in place. This is a blocking call."""
-    print("[ACTION] Freezing head position.")
     try:
         motion_service.setStiffnesses(["HeadYaw", "HeadPitch"], 1.0)
     except Exception as e:
         print("[ERROR] Could not freeze head:", e)
 
 def unfreeze_head():
-    """Sets head stiffness to 0.0 to allow it to move freely. This is a blocking call."""
-    print("[ACTION] Unfreezing head position.")
     try:
         motion_service.setStiffnesses(["HeadYaw", "HeadPitch"], 0.0)
     except Exception as e:
         print("[ERROR] Could not unfreeze head:", e)
 
-
 # --- Autonomous Behavior Control ---
-def disable_autonomous_behaviors_and_freeze_head():
-    """Disables built-in behaviors and freezes the head for stable operation."""
+def disable_autonomous_behaviors():
     try:
-        if awareness_service.isAwarenessRunning():
-            awareness_service.stopAwareness()
+        if awareness_service.isEnabled():
+            awareness_service.setEnabled(False)
             print("[CONFIG] Basic Awareness disabled.")
-
         if life_service.getState() != "disabled":
             life_service.setState("disabled")
             print("[CONFIG] Autonomous Life disabled.")
-
         motion_service.setStiffnesses("Body", 1.0)
         print("[CONFIG] Body stiffness set to 1.0.")
-
-        # Freeze the head on startup
         freeze_head()
-
+        print("[CONFIG] Head is frozen.")
     except Exception as e:
         print("[WARN] Error during autonomous behavior disabling:", e)
 
-# --- Camera Setup ---
-camera_name = "flask_cam"
-name_id = None
-def setup_camera():
-    """Subscribes to the robot's top camera."""
-    global name_id
-    camera_index = 0  # top camera
-    resolution = 1    # 640x480
-    color_space = 13  # BGR
-    fps = 20
-    try:
-        name_id = video_service.subscribeCamera(camera_name, camera_index, resolution, color_space, fps)
-        print("[INFO] Camera subscribed successfully.")
-    except Exception as e:
-        print("[ERROR] Error subscribing to camera:", e)
-
+# --- Video Stream Generation ---
 def generate_video_stream():
-    """Generates a multipart JPEG stream from the camera feed."""
-    if name_id is None:
+    if not camera_thread.is_alive():
         return
     while True:
-        try:
-            image = video_service.getImageRemote(name_id)
-            if image is None:
-                time.sleep(1.0/fps)
-                continue
-
-            width, height, _, array = image[0], image[1], image[2], image[6]
-            img = np.frombuffer(array, dtype=np.uint8).reshape((height, width, 3))
-            ret, jpeg = cv2.imencode('.jpg', img)
-            if not ret:
-                continue
-
+        frame = camera_thread.get_frame()
+        if frame:
             yield (b"--frame\r\n"
-                   b"Content-Type: image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n")
-        except Exception as e:
-            print("[WARN] Error getting image from camera:", e)
-            time.sleep(1)
+                   b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+        time.sleep(0.01)
 
 @app.route('/video_feed')
 def video_feed():
@@ -118,7 +180,6 @@ def index():
 
 # --- Threading Decorator ---
 def run_in_thread(target_func):
-    """Decorator to run a function in a separate, non-blocking thread."""
     def wrapper(*args, **kwargs):
         thread = threading.Thread(target=target_func, args=args, kwargs=kwargs)
         thread.daemon = True
@@ -126,44 +187,27 @@ def run_in_thread(target_func):
     return wrapper
 
 # --- Robot Actions (Non-Blocking) ---
-
 @run_in_thread
-def do_rock():
-    print("[ACTION] Performing: rock")
+def do_gesture(gesture_name):
+    gesture_map = {
+        "rock": ([1.0, 0.5, 0.0, 0.0], ["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"]),
+        "paper": ([0.8, 0.0, 1.0, -1.2, 1.0], ["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"]),
+        "scissors": ([0.8, 0.0, 1.0, 0.0, 1.0], ["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"])
+    }
+    if gesture_name not in gesture_map: return
+
+    print("[ACTION] Performing:", gesture_name)
+    angles, joints = gesture_map[gesture_name]
     motion_service.setStiffnesses("RArm", 1.0)
-    motion_service.setAngles(["RShoulderPitch", "RElbowRoll", "RWristYaw", "RHand"],
-                             [1.0, 0.5, 0.0, 0.0], 0.2)
+    motion_service.setAngles(joints, angles, 0.2)
     time.sleep(GESTURE_HOLD_DURATION)
     posture_service.goToPosture("StandInit", 0.5)
-    # Head remains frozen
-
-@run_in_thread
-def do_paper():
-    print("[ACTION] Performing: paper")
-    motion_service.setStiffnesses("RArm", 1.0)
-    motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
-                             [0.8, 0.0, 1.0, -1.2, 1.0], 0.2)
-    time.sleep(GESTURE_HOLD_DURATION)
-    posture_service.goToPosture("StandInit", 0.5)
-    # Head remains frozen
-
-@run_in_thread
-def do_scissors():
-    print("[ACTION] Performing: scissors")
-    motion_service.setStiffnesses("RArm", 1.0)
-    motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowRoll", "RWristYaw", "RHand"],
-                             [0.8, 0.0, 1.0, 0.0, 1.0], 0.2)
-    time.sleep(GESTURE_HOLD_DURATION)
-    posture_service.goToPosture("StandInit", 0.5)
-    # Head remains frozen
 
 @run_in_thread
 def do_swing():
     print("[ACTION] Performing: swing")
-    # Head is already frozen from startup
     posture_service.goToPosture("StandInit", 0.5)
     motion_service.setStiffnesses("RArm", 1.0)
-    # A short loop for the swing animation
     for _ in range(2):
         motion_service.setAngles(["RShoulderPitch", "RElbowRoll"], [0.4, 1.1], 0.3)
         time.sleep(0.3)
@@ -173,25 +217,20 @@ def do_swing():
 @run_in_thread
 def say_text_threaded(text):
     try:
-        print("[ACTION] Saying:", text)
         tts_service.say(str(text))
     except Exception as e:
         print("[ERROR] TTS Error:", e)
 
 # --- Flask Routes for Actions ---
-
 @app.route('/gesture/<gesture_name>')
 def perform_gesture(gesture_name):
-    gesture_map = {
-        "rock": do_rock,
-        "paper": do_paper,
-        "scissors": do_scissors,
-        "swing": do_swing
-    }
-    func = gesture_map.get(gesture_name.lower())
-    if func:
-        func()
-        return jsonify({"status": "ok", "message": "Gesture " + gesture_name + " started."})
+    name = gesture_name.lower()
+    if name in ["rock", "paper", "scissors"]:
+        do_gesture(name)
+        return jsonify({"status": "ok", "message": "Gesture " + name + " started."})
+    elif name == "swing":
+        do_swing()
+        return jsonify({"status": "ok", "message": "Gesture swing started."})
     else:
         return jsonify({"error": "Unknown gesture"}), 400
 
@@ -204,23 +243,10 @@ def say_text():
     return jsonify({"status": "ok", "message": "Speech started."})
 
 @app.route('/listen', methods=['GET'])
-def listen_for_word():
+def listen_for_word_route():
     try:
         vocabulary = ["rock", "paper", "scissors", "swing", "stop"]
-        asr_service.setLanguage("English")
-        asr_service.setVocabulary(vocabulary, False)
-        asr_service.startDetection()
-        print("[INFO] Listening for words...")
-        word_heard = None
-        start_time = time.time()
-        timeout = 10
-        while time.time() - start_time < timeout:
-            result = memory_service.getData("WordRecognized")
-            if isinstance(result, list) and len(result) >= 2 and result[1] > 0.4:
-                word_heard = result[0]
-                break
-            time.sleep(0.1)
-        asr_service.stopDetection()
+        word_heard = asr_handler.listen(vocabulary, timeout=10)
         if word_heard:
             return jsonify({"heard": word_heard})
         else:
@@ -228,16 +254,21 @@ def listen_for_word():
     except Exception as e:
         return jsonify({"error": "ASR failure", "detail": str(e)}), 500
 
+# --- Cleanup Function ---
+def cleanup():
+    print("\n[INFO] Server shutting down. Releasing resources...")
+    camera_thread.stop()
+    asr_handler.disconnect()
+    posture_service.goToPosture("Crouch", 0.5)
+    unfreeze_head()
+    motion_service.setStiffnesses("Body", 0.0)
+    print("[INFO] Resources released.")
+
 # --- Main Execution ---
 if __name__ == '__main__':
-    disable_autonomous_behaviors_and_freeze_head()
-    setup_camera()
-    try:
-        app.run(host='0.0.0.0', port=5001)
-    finally:
-        print("\n[INFO] Server shutting down. Releasing resources.")
-        if name_id:
-            video_service.unsubscribe(name_id)
-        posture_service.goToPosture("Crouch", 0.5)
-        unfreeze_head() # Unfreeze head on shutdown
-        motion_service.setStiffnesses("Body", 0.0)
+    disable_autonomous_behaviors()
+    camera_thread.start()
+    atexit.register(cleanup) # Register cleanup to be called on exit
+    # For development, use Flask's built-in server:
+    app.run(host='0.0.0.0', port=5001)
+    # For production, use Gunicorn (see instructions).
