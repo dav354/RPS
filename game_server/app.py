@@ -91,7 +91,7 @@ def align_landmarks_3d(landmarks):
     return aligned_landmarks
 
 def _process_hand_gestures(rgb_frame):
-    """Processes a frame to detect a gesture and sends it to the game manager."""
+    """Processes a frame to detect a gesture and sends it DIRECTLY to the game manager."""
     gesture, confidence, infer_ms = "No Hand", 0.0, 0.0
     landmark_pts_2d = None
     results = mp_hands.process(rgb_frame)
@@ -119,7 +119,7 @@ def _process_hand_gestures(rgb_frame):
                 current_gesture = label_map[idx]
                 gesture = current_gesture
                 confidence = conf
-                # --- NEW: Forward the detected gesture to the game manager ---
+                # --- CRITICAL CHANGE: This is now the ONLY place gestures are sent from ---
                 add_gesture_from_camera(current_gesture)
             else:
                 gesture = "Unknown"
@@ -206,15 +206,7 @@ def get_game_state_route():
     return jsonify(get_game_state_for_frontend())
 
 
-@app.route("/add_gesture", methods=['POST'])
-def add_gesture_route():
-    """Receives gestures from the frontend and passes them to the game manager."""
-    data = request.get_json()
-    gesture = data.get('gesture')
-    if gesture:
-        add_gesture_from_camera(gesture)
-        return jsonify({"status": "received"}), 200
-    return jsonify({"status": "error", "message": "No gesture provided"}), 400
+# --- REMOVED: The /add_gesture route has been deleted as it was causing a race condition. ---
 
 
 @app.route("/start_new_round")
