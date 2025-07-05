@@ -220,6 +220,10 @@ class GameManager:
         computer_move = random.choice(["rock", "paper", "scissors"])
         self._computer_move = computer_move
         call_robot_gesture_api(computer_move)
+        call_robot_speech_api(computer_move)
+
+
+
 
         if player_move == computer_move:
             self._result = "Draw!"
