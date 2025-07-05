@@ -152,18 +152,22 @@ def _process_hand_gestures(rgb_frame):
             conf = float(avg_pred[idx])
 
             if conf > 0.75:
-                current_gesture = label_map[idx]
-                gesture = current_gesture
-                confidence = conf
-                if gesture_collector.collecting:
-                    gesture_collector.add_gesture(current_gesture)
+                gesture = label_map[idx]
             else:
                 gesture = "Unknown"
                 confidence = conf
         else:
             gesture = "Inference Error"
+            confidence = 0.0
+    else:
+        gesture = "No Hand"
+        confidence = 0.0
+
+    if gesture_collector.collecting:
+        gesture_collector.add_gesture(gesture)
 
     return gesture, confidence, infer_ms, landmark_pts_2d
+
 
 
 def _check_and_finalize_round():
