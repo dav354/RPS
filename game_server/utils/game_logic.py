@@ -81,15 +81,16 @@ class GameManager:
         self._current_round = 0
         self._game_over = False
         self._last_round_time = 0 # To manage cooldown between rounds
+        self._is_awaiting_replay = False # Flag to prevent race conditions on invalid moves
         self._update_global_game_state() # Initialize global state
 
     def _update_global_game_state(self):
         """Updates the global game_state dictionary from instance attributes."""
         global game_state
         game_state.update({
-            "player_move": game_state.get("player_move", "none"), # Keep previous move for display
-            "computer_move": game_state.get("computer_move", "none"), # Keep previous move for display
-            "result": game_state.get("result", ""), # Keep previous result for display
+            "player_move": game_state.get("player_move", "none"),
+            "computer_move": game_state.get("computer_move", "none"),
+            "result": game_state.get("result", ""),
             "last_played": self._last_round_time,
             "score": self._score.copy(),
             "current_round": self._current_round,
@@ -103,6 +104,7 @@ class GameManager:
         self._current_round = 0
         self._game_over = False
         self._last_round_time = 0
+        self._is_awaiting_replay = False
         self._update_global_game_state()
         print("[GAME] Game reset. Preparing for new game.")
         call_robot_speech_api("Game reset.")
@@ -114,13 +116,13 @@ class GameManager:
         if self._game_over:
             game_state["result"] = "Game over. Please reset to play again."
             self._update_global_game_state()
-            return False # Cannot start round
+            return False
 
         if now - self._last_round_time < COOLDOWN:
             cooldown_remaining = COOLDOWN - (now - self._last_round_time)
             game_state["result"] = f"Cooldown... wait {cooldown_remaining:.1f}s before next round."
             self._update_global_game_state()
-            return False # Cannot start round
+            return False
 
         if self._current_round >= self.total_rounds:
             self._game_over = True
@@ -128,18 +130,21 @@ class GameManager:
             self._update_global_game_state()
             return False
 
+        # Reset the replay flag since we are starting a clean round.
+        self._is_awaiting_replay = False
         self._current_round += 1
+
         print(f"[ROUND] Starting Round {self._current_round}/{self.total_rounds}")
         call_robot_speech_api(f"Round {self._current_round}. Show your move!")
-        call_robot_gesture_api("swing") # Robot swings to signal start of round
-        game_state.update({ # Reset round-specific state
+        call_robot_gesture_api("swing")
+        game_state.update({
             "player_move": "none",
             "computer_move": "none",
             "result": f"Round {self._current_round}/{self.total_rounds}: Waiting for player...",
             "last_played": now
         })
         self._update_global_game_state()
-        return True # Round started successfully
+        return True
 
     def play_round(self, player_move: str) -> dict:
         """
@@ -153,44 +158,44 @@ class GameManager:
             self._update_global_game_state()
             return game_state
 
-        if now - self._last_round_time < COOLDOWN:
+        if now - self._last_round_time < COOLDOWN and not self._is_awaiting_replay:
             cooldown_remaining = COOLDOWN - (now - self._last_round_time)
-            game_state["result"] = f"Still in cooldown from previous round... wait {cooldown_remaining:.1f}s"
+            game_state["result"] = f"Still in cooldown... wait {cooldown_remaining:.1f}s"
             self._update_global_game_state()
             return game_state
 
-        # --- MODIFIED INVALID MOVE LOGIC ---
         if player_move not in {"rock", "paper", "scissors"}:
+            # If we are already handling an invalid move, ignore subsequent invalid moves
+            # until the frontend triggers a new round. This prevents a race condition.
+            if self._is_awaiting_replay:
+                return game_state
+
+            # This is the first invalid move for this round. Set the flag.
+            self._is_awaiting_replay = True
             call_robot_speech_api("Invalid move. Let's try that again.")
 
             # Decrement the round so the next call to start_new_round replays this one.
             self._current_round -= 1
 
             # Set a state that the frontend will recognize as a "processed" round.
-            # This triggers the frontend's timer to start the next round.
             game_state.update({
-                "player_move": player_move, # Show the invalid move
-                "computer_move": "...", # A non-"none" value to trigger frontend logic
+                "player_move": player_move,
+                "computer_move": "...",
                 "result": "Invalid move! Re-doing round...",
                 "last_played": now,
             })
             self._update_global_game_state()
             return game_state
-        # --- END OF MODIFICATION ---
 
         computer_move = random.choice(["rock", "paper", "scissors"])
-        call_robot_speech_api(computer_move) # Announce robot's move
-        call_robot_gesture_api(computer_move) # Perform robot's move
+        call_robot_speech_api(computer_move)
+        call_robot_gesture_api(computer_move)
 
         result_message = ""
         if player_move == computer_move:
             result_message = "Draw!"
             call_robot_speech_api("It's a draw!")
-        elif (player_move, computer_move) in [
-            ("rock", "scissors"),
-            ("paper", "rock"),
-            ("scissors", "paper")
-        ]:
+        elif (player_move, computer_move) in [("rock", "scissors"), ("paper", "rock"), ("scissors", "paper")]:
             result_message = "You Win!"
             self._score["player"] += 1
             call_robot_speech_api("you win!")
