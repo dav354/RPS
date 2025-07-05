@@ -196,6 +196,22 @@ class GameManager:
         Contains the core game logic. Determines winner or handles invalid moves.
         This is executed only once when gesture collection is done.
         """
+        # Check for game over condition
+        if self._current_round >= self.total_rounds or \
+                self._score["player"] >= (self.total_rounds // 2 + 1) or \
+                self._score["computer"] >= (self.total_rounds // 2 + 1):
+            self._game_over = True
+            final_msg = ""
+            if self._score["player"] > self._score["computer"]:
+                final_msg = random.choice(PLAYER_WIN_RESPONSES)
+            elif self._score["computer"] > self._score["player"]:
+                final_msg =random.choice(COMPUTER_WIN_RESPONSES)
+            else:
+                final_msg = "Game over. It's a tie. How boring."
+
+            self._result = " 🎉 Game Over!"
+            call_robot_speech_api(final_msg)
+
         self._game_phase = "PROCESSED"
         self._last_action_time = time.time()
 
@@ -227,27 +243,12 @@ class GameManager:
         elif (player_move, computer_move) in [("rock", "scissors"), ("paper", "rock"), ("scissors", "paper")]:
             self._result = "You Win!"
             self._score["player"] += 1
-            call_robot_speech_api(random.choice(PLAYER_WIN_RESPONSES))
+            call_robot_speech_api("You Win!")
         else:
             self._result = "Computer Wins!"
             self._score["computer"] += 1
-            call_robot_speech_api(random.choice(COMPUTER_WIN_RESPONSES))
+            call_robot_speech_api("I Won!")
 
-        # Check for game over condition
-        if self._current_round >= self.total_rounds or \
-                self._score["player"] >= (self.total_rounds // 2 + 1) or \
-                self._score["computer"] >= (self.total_rounds // 2 + 1):
-            self._game_over = True
-            final_msg = ""
-            if self._score["player"] > self._score["computer"]:
-                final_msg = "Game over. You won. I'll get you next time."
-            elif self._score["computer"] > self._score["player"]:
-                final_msg = "Game over. I am victorious. Bow to your master."
-            else:
-                final_msg = "Game over. It's a tie. How boring."
-
-            self._result = " 🎉 Game Over!"
-            call_robot_speech_api(final_msg)
 
 # === Initialize a single GameManager instance ===
 game_manager = GameManager()
