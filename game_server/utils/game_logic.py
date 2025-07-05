@@ -246,7 +246,7 @@ class GameManager:
             else:
                 final_msg = "Game over. It's a tie. How boring."
 
-            self._result += " 🎉 Game Over!"
+            self._result = " 🎉 Game Over!"
             call_robot_speech_api(final_msg)
 
 # === Initialize a single GameManager instance ===
