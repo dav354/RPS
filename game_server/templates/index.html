@@ -4,11 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rock Paper Scissors Game</title>
-    <!-- Materialize CSS and Icons -->
+    <title>RPS Live</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
@@ -85,7 +83,7 @@
         .game-control-panel {
             background-color: var(--card-bg);
             margin-top: 24px;
-            padding: 24px;
+            padding: 12px;
             border-radius: 12px;
         }
 
@@ -93,15 +91,21 @@
             text-align: center;
             flex-grow: 1;
             margin: 0 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .info-line {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             font-weight: 500;
             color: var(--text-color);
             min-height: 28px;
+        }
+
+        .info-line.center-justified {
+            justify-content: center;
         }
 
         #match {
@@ -117,6 +121,7 @@
             font-size: 2.5rem;
             font-weight: 700;
             margin: 8px 0;
+            justify-content: space-between;
         }
 
         #result {
@@ -143,49 +148,41 @@
             text-align: left;
         }
 
-        .status-dot {
-            font-size: 1.5rem;
-            line-height: 1;
-            animation: pulse 1.5s infinite;
+        .play-btn-custom {
+            height: auto !important;
+            min-height: 80px;
+            font-size: 1.5rem !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+            line-height: 1.5 !important;
+            border-radius: 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
-
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.3;
-            }
-
-            100% {
-                opacity: 1;
-            }
+        .play-btn-custom i {
+            font-size: 2.5rem !important;
         }
     </style>
 </head>
-
 
 <body>
 <nav>
     <div class="nav-wrapper container">
         <a href="#" class="brand-logo">Rock Paper Scissors</a>
         <ul class="right nav-icons">
-            <li><span id="tpu-indicator" title="System status"></span></li>
             <li><i id="darkModeToggle" class="material-icons dark-toggle">brightness_6</i></li>
         </ul>
     </div>
 </nav>
 
 <div class="container" style="margin-top: 32px;">
-    <div class="row" style="display:flex; flex-wrap: wrap;">
-        <!-- Camera Feed Column -->
+    <div class="row" style="display:flex; flex-wrap: wrap; align-items: center;">
         <div style="flex: 2; min-width: 300px; padding-right:16px;">
             <img src="{{ url_for('video_feed_route') }}" class="responsive-img" id="camera-stream"
                  onerror="this.onerror=null;this.src='https://placehold.co/640x480/e0e0e0/757575?text=Camera+Off';" />
         </div>
 
-        <!-- Stats Column -->
         <div style="flex: 1; min-width: 250px;">
             <div class="card" style="margin-bottom: 16px;">
                 <div class="card-content">
@@ -209,15 +206,14 @@
         </div>
     </div>
 
-    <!-- Game Control Panel -->
     <div class="card game-control-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <button id="playBtn" class="btn-large green waves-effect waves-light">
-                <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
+        <div style="display:flex; justify-content: center; align-items:stretch;">
+            <button id="playBtn" class="btn green waves-effect waves-light play-btn-custom">
+                <i class="material-icons" id="playBtnIcon">play_arrow</i>Start Game
             </button>
 
             <div class="game-info-container">
-                <div id="match" class="info-line">
+                <div id="match" class="info-line center-justified">
                     <span id="round-info">Round 0/3</span>
                 </div>
                 <div id="score" class="info-line">
@@ -225,7 +221,7 @@
                     <span class="separator">:</span>
                     <span id="player-score" class="right">0</span>
                 </div>
-                <div id="result-display" class="info-line">
+                <div id="result-display" class="info-line center-justified">
                     <span id="result">Press Start Game to begin!</span>
                 </div>
             </div>
@@ -254,13 +250,15 @@
             clearTimeout(nextRoundTimer); // Stop any pending round starts
 
             if (gameActive) {
+                // If game is active, stop it
                 gameActive = false;
-                await fetch("/reset_game");
+                await fetch("/reset_game").catch(err => console.error("Reset game fetch failed", err));
                 stopUiUpdates();
             } else {
+                // If game is inactive, start it
                 gameActive = true;
-                await fetch("/reset_game");
-                await fetch("/start_new_round"); // Start the first round immediately
+                await fetch("/reset_game").catch(err => console.error("Reset game fetch failed", err));
+                await fetch("/start_new_round").catch(err => console.error("Start round fetch failed", err));
                 startUiUpdates();
             }
             updateButton();
@@ -268,11 +266,14 @@
 
         // --- UI Update Logic ---
         function updateButton() {
-            playBtn.classList.toggle("green", !gameActive);
-            playBtn.classList.toggle("red", gameActive);
-            const iconText = gameActive ? "stop" : "play_arrow";
-            const btnText = gameActive ? "Stop Game" : "Reset Game";
-            playBtn.innerHTML = `<i class="material-icons left">${iconText}</i>${btnText}`;
+            playBtn.classList.remove("green", "red");
+            if(gameActive) {
+                playBtn.classList.add("red");
+                playBtn.innerHTML = `<i class="material-icons left">stop</i>Stop Game`;
+            } else {
+                playBtn.classList.add("green");
+                playBtn.innerHTML = `<i class="material-icons left">play_arrow</i>Start Game`;
+            }
         }
 
         function updateUI(state) {
@@ -281,22 +282,19 @@
             playerScoreEl.textContent = state.score.player;
             resultEl.textContent = state.result;
 
-            // --- State Transition Logic ---
-            // Determine the current phase based on the result message from the backend
-            let currentPhase = "PROCESSED"; // Default to processed
+            let currentPhase = "PROCESSED";
             if (state.result.includes("Show your move")) {
                 currentPhase = "COLLECTING";
             }
 
-            // If the phase just changed from COLLECTING to PROCESSED, start the timer for the next round.
             if (currentPhase === "PROCESSED" && lastKnownPhase === "COLLECTING") {
                 console.log(`Round ${state.current_round} finished. Scheduling next round.`);
-                clearTimeout(nextRoundTimer); // Ensure no double timers
+                clearTimeout(nextRoundTimer);
                 nextRoundTimer = setTimeout(() => {
                     if (!gameActive) return;
                     console.log("Timer elapsed. Requesting next round from backend.");
-                    fetch("/start_new_round");
-                }, 4000); // 4-second delay before starting next round
+                    fetch("/start_new_round").catch(err => console.error("Start next round fetch failed", err));
+                }, 5000); // 4-second delay
             }
             lastKnownPhase = currentPhase;
 
@@ -317,13 +315,17 @@
                 }
                 try {
                     const res = await fetch('/get_game_state');
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     const state = await res.json();
                     updateUI(state);
                 } catch (error) {
                     console.error("Failed to get game state:", error);
+                    resultEl.textContent = "Connection lost. Please restart.";
                     gameActive = false; // Stop game on error
+                    stopUiUpdates();
+                    updateButton();
                 }
-            }, 1000); // Poll for UI updates every second
+            }, 1000); // Poll every second
         }
 
         function stopUiUpdates() {
@@ -334,30 +336,27 @@
         // --- Stats Fetching ---
         async function fetchSystemStats() {
             try {
-                // This function now ONLY fetches stats for display. It does not forward them.
                 const res = await fetch('/gesture_data');
                 if (!res.ok) return;
                 const stats = await res.json();
 
-                // Update stats display
-                document.getElementById('gesture').innerText = stats.gesture;
-                document.getElementById('confidence').innerText = stats.confidence;
-                document.getElementById('fps').innerText = stats.fps;
-                document.getElementById('infer').innerText = stats.inference_ms;
-                document.getElementById('cpu').innerText = stats.cpu;
-                document.getElementById('ram').innerText = stats.ram;
+                document.getElementById('gesture').innerText = stats.gesture || '…';
+                document.getElementById('confidence').innerText = stats.confidence || '…';
+                document.getElementById('fps').innerText = stats.fps || '…';
+                document.getElementById('infer').innerText = stats.inference_ms || '…';
+                document.getElementById('cpu').innerText = stats.cpu || '…';
+                document.getElementById('ram').innerText = stats.ram || '…';
                 document.getElementById('cpu_temp').innerText = stats.cpu_temp || 'N/A';
 
             } catch (error) {
-                console.error("Failed to fetch system stats:", error);
+                // Don't log this frequently, it can spam the console if the server is down
             }
         }
 
-        // --- Initial Setup ---
+        // --- Initial Setup & Dark Mode ---
         playBtn.addEventListener("click", toggleGame);
-        setInterval(fetchSystemStats, 200); // Fetch display stats frequently
+        setInterval(fetchSystemStats, 500); // Fetch stats more frequently for responsiveness
 
-        // Dark mode logic (unchanged)
         const body = document.body;
         const darkToggle = document.getElementById('darkModeToggle');
         const applyDarkMode = (isDark) => {
@@ -373,6 +372,9 @@
             applyDarkMode(true);
         }
         darkToggle.addEventListener('click', toggleDarkMode);
+
+        // Initial button state
+        updateButton();
     });
 </script>
 </body>

@@ -12,7 +12,7 @@ ROBOT_API_BASE_URL = os.environ.get("PEPPER_IP")
 
 # === Configuration ===
 COLLECTION_DURATION = 2.0  # Seconds to collect gestures
-ROUND_COOLDOWN = 6.0 # Seconds to show result before next round can start
+ROUND_COOLDOWN = 5.0 # Seconds to show result before next round can start
 TOTAL_ROUNDS = 3
 
 PLAYER_WIN_RESPONSES = [
