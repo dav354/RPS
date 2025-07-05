@@ -1,306 +1,393 @@
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rock Paper Scissors Game</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+
   <style>
+    /* General Styling & Dark Theme */
+    :root {
+      --bg-color: #f4f4f5;
+      --text-color: #18181b;
+      --card-bg: #ffffff;
+      --nav-bg: #546e7a;
+      --nav-text: #ffffff;
+      --primary-color: #26a69a;
+      --status-dot-ok: #4caf50;
+      --status-dot-error: #f44336;
+    }
+
+    .dark-theme {
+      --bg-color: #18181b;
+      --text-color: #e4e4e7;
+      --card-bg: #27272a;
+      --nav-bg: #27272a;
+      --nav-text: #e4e4e7;
+      --primary-color: #26a69a;
+    }
+
     body {
       font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
     }
 
-    /* Custom transition for dark mode */
-    .theme-transition {
-      transition: background-color 0.3s ease, color 0.3s ease;
+    nav {
+      background-color: var(--nav-bg);
+      color: var(--nav-text);
+      box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
     }
 
-    /* Pulse animation for status dots */
-    @keyframes pulse {
-      50% {
-        opacity: .5;
-      }
+    .brand-logo,
+    .nav-icons li i {
+      color: var(--nav-text);
     }
 
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0.6, 1) infinite;
+    .nav-icons {
+      display: flex;
+      align-items: center;
     }
 
-    /* Ensure the aspect ratio plugin works */
-    .aspect-w-4 {
-      position: relative;
-      padding-bottom: 75%;
+    .dark-toggle {
+      cursor: pointer;
     }
 
-    .aspect-h-3 {}
-
-    /* Helper class */
-    .aspect-w-4>* {
-      position: absolute;
-      height: 100%;
+    #camera-stream {
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      background-color: #e0e0e0;
       width: 100%;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      left: 0;
+      max-width: 640px;
+      aspect-ratio: 4/3;
+      height: auto;
+      display: block;
+      margin: 15px auto 0;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Game Control Panel Styling */
+    .game-control-panel {
+      background-color: var(--card-bg);
+      margin-top: 24px;
+      /* Reduced padding to allow button to be larger */
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .game-info-container {
+      text-align: center;
+      flex-grow: 1;
+      margin: 0 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .info-line {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+      color: var(--text-color);
+      min-height: 28px;
+    }
+    
+    /* New class to center specific info lines */
+    .info-line.center-justified {
+        justify-content: center;
+    }
+
+    #match {
+      font-size: 1.1rem;
+      color: #757575;
+    }
+
+    .dark-theme #match {
+      color: #a1a1aa;
+    }
+
+    #score {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 8px 0;
+      justify-content: space-between;
+    }
+
+    #result {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .info-line .separator {
+      margin: 0 16px;
+      font-weight: 400;
+    }
+
+    .info-line .left,
+    .info-line .right {
+      flex-basis: 45%;
+    }
+
+    .info-line .left {
+      text-align: right;
+    }
+
+    .info-line .right {
+      text-align: left;
+    }
+
+    .status-dot {
+      font-size: 1.5rem;
+      line-height: 1;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    
+    /* Custom styles for the larger button */
+    .play-btn-custom {
+        height: auto !important; /* Override Materialize fixed height */
+        min-height: 80px; /* Ensure a minimum height */
+        font-size: 1.5rem !important; /* Larger text */
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        line-height: 1.5 !important;
+    }
+    .play-btn-custom i {
+        font-size: 2.5rem !important; /* Larger icon */
     }
   </style>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'primary': {
-              '50': '#eff6ff', '100': '#dbeafe', '200': '#bfdbfe', '300': '#93c5fd', '400': '#60a5fa', '500': '#3b82f6', '600': '#2563eb', '700': '#1d4ed8', '800': '#1e40af', '900': '#1e3a8a'
-            }
-          }
-        }
-      }
-    }
-  </script>
 </head>
 
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 theme-transition">
 
-  <!-- Navigation -->
-  <nav class="bg-white dark:bg-gray-800 shadow-md">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center">
-          <span class="font-bold text-xl text-teal-600 dark:text-teal-400">Rock Paper Scissors</span>
+<body>
+<nav>
+  <div class="nav-wrapper container">
+    <a href="#" class="brand-logo">Rock Paper Scissors</a>
+    <ul class="right nav-icons">
+      <li><span id="tpu-indicator" title="System status"></span></li>
+      <li><i id="darkModeToggle" class="material-icons dark-toggle">brightness_6</i></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="container" style="margin-top: 32px;">
+  <!-- Added align-items: center to the style attribute -->
+  <div class="row" style="display:flex; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 2; min-width: 300px; padding-right:16px;">
+      <img src="{{ url_for('video_feed_route') }}" class="responsive-img" id="camera-stream"
+           onerror="this.onerror=null;this.src='https://placehold.co/640x480/e0e0e0/757575?text=Camera+Off';" />
+    </div>
+
+    <div style="flex: 1; min-width: 250px;">
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-content">
+          <p><strong>Detected Gesture:</strong> <span id="gesture">…</span></p>
+          <p><strong>Confidence:</strong> <span id="confidence">…</span></p>
         </div>
-        <div class="flex items-center space-x-4">
-          <span id="tpu-indicator" title="System status"></span>
-          <button id="darkModeToggle"
-            class="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none">
-            <!-- SVG Icon will be inserted here by JS -->
-          </button>
+      </div>
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-content">
+          <p><strong>FPS:</strong> <span id="fps">…</span></p>
+          <p><strong>Inference (ms):</strong> <span id="infer">…</span></p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-content">
+          <p><strong>CPU %:</strong> <span id="cpu">…</span></p>
+          <p><strong>CPU Temp (°C):</strong> <span id="cpu_temp">…</span></p>
+          <p><strong>RAM:</strong> <span id="ram">…</span></p>
         </div>
       </div>
     </div>
-  </nav>
+  </div>
 
-  <!-- Main Content -->
-  <main class="container mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-    <!-- Changed to a flex layout with a gap for spacing -->
-    <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+  <div class="card game-control-panel">
+    <!-- Changed to align-items: stretch to allow button to grow vertically -->
+    <div style="display:flex; justify-content: center; align-items:stretch;">
+      <!-- Removed btn-large and added custom class -->
+      <button id="playBtn" class="btn green waves-effect waves-light play-btn-custom">
+        <i class="material-icons left" id="playBtnIcon">play_arrow</i>Start Game
+      </button>
 
-      <!-- Left Column: Camera Feed with fixed max-width -->
-      <div class="w-full mx-auto lg:mx-0" style="max-width: 640px;">
-        <div class="aspect-w-4 aspect-h-3 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-lg overflow-hidden">
-          <img src="{{ url_for('video_feed_route') }}" id="camera-stream" class="w-full h-full object-cover"
-            onerror="this.onerror=null;this.src='https://placehold.co/640x480/374151/e5e7eb?text=Camera+Feed+Offline';" />
+      <div class="game-info-container">
+        <!-- Added center-justified class -->
+        <div id="match" class="info-line center-justified">
+          <span id="round-info">Round 0/3</span>
         </div>
-      </div>
-
-      <!-- Right Column: Stats, flex-1 to take remaining space -->
-      <div class="w-full lg:flex-1">
-        <div class="space-y-6">
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
-            <p><strong>Detected Gesture:</strong> <span id="gesture">…</span></p>
-            <p><strong>Confidence:</strong> <span id="confidence">…</span></p>
-          </div>
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
-            <p><strong>FPS:</strong> <span id="fps">…</span></p>
-            <p><strong>Inference (ms):</strong> <span id="infer">…</span></p>
-          </div>
-          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5">
-            <p><strong>CPU %:</strong> <span id="cpu">…</span></p>
-            <p><strong>CPU Temp (°C):</strong> <span id="cpu_temp">…</span></p>
-            <p><strong>RAM:</strong> <span id="ram">…</span></p>
-          </div>
+        <div id="score" class="info-line">
+          <span id="computer-score" class="left">0</span>
+          <span class="separator">:</span>
+          <span id="player-score" class="right">0</span>
+        </div>
+        <!-- Added center-justified class -->
+        <div id="result-display" class="info-line center-justified">
+          <span id="result">Press Start Game to begin!</span>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- Game Control Panel -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg mt-8 p-2">
-      <div class="flex items-stretch justify-between">
-        <button id="playBtn" class="flex items-center justify-center px-6 rounded-md text-white theme-transition">
-          <span id="playBtnContent" class="flex items-center text-xl font-medium">
-            <svg id="playBtnIcon" class="h-8 w-8 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            </svg>
-            <span id="playBtnText">Start Game</span>
-          </span>
-        </button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // --- DOM Element References ---
+    const playBtn = document.getElementById("playBtn");
+    const roundInfoEl = document.getElementById("round-info");
+    const computerScoreEl = document.getElementById("computer-score");
+    const playerScoreEl = document.getElementById("player-score");
+    const resultEl = document.getElementById("result");
 
-        <div class="flex-grow text-center mx-4 py-4 flex flex-col justify-center">
-          <div id="match" class="text-base text-gray-500 dark:text-gray-400">
-            <span id="round-info">Round 0/3</span>
-          </div>
-          <div id="score" class="flex items-center justify-center text-4xl font-bold my-2">
-            <span id="computer-score" class="w-20 text-right">0</span>
-            <span class="mx-4 font-light text-gray-400">:</span>
-            <span id="player-score" class="w-20 text-left">0</span>
-          </div>
-          <div id="result-display" class="text-lg font-semibold text-teal-600 dark:text-teal-400 h-7">
-            <span id="result">Press Start Game to begin!</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
+    // --- Game State Variables ---
+    let gameActive = false;
+    let uiUpdateInterval;
+    let nextRoundTimer;
+    let lastKnownPhase = "IDLE";
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // --- DOM Element References ---
-      const playBtn = document.getElementById("playBtn");
-      const playBtnContent = document.getElementById("playBtnContent");
-      const playBtnIcon = document.getElementById("playBtnIcon");
-      const playBtnText = document.getElementById("playBtnText");
-      const darkModeToggle = document.getElementById('darkModeToggle');
-      const tpuIndicator = document.getElementById('tpu-indicator');
-      const roundInfoEl = document.getElementById("round-info");
-      const computerScoreEl = document.getElementById("computer-score");
-      const playerScoreEl = document.getElementById("player-score");
-      const resultEl = document.getElementById("result");
+    // --- Main Game Control ---
+    async function toggleGame() {
+      clearTimeout(nextRoundTimer); // Stop any pending round starts
 
-      // --- Game State & Timers ---
-      let gameActive = false;
-      let uiUpdateInterval;
-      let nextRoundTimer;
-      let lastKnownPhase = "IDLE";
+      if (gameActive) {
+        gameActive = false;
+        await fetch("/reset_game");
+        stopUiUpdates();
+      } else {
+        gameActive = true;
+        await fetch("/reset_game");
+        await fetch("/start_new_round"); // Start the first round immediately
+        startUiUpdates();
+      }
+      updateButton();
+    }
 
-      // --- SVG Icons ---
-      const sunIcon = `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`;
-      const moonIcon = `<svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`;
-      const playIconPath = "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z";
-      const stopIconPath = "M10 9v6m4-6v6";
+    // --- UI Update Logic ---
+    function updateButton() {
+      playBtn.classList.toggle("green", !gameActive);
+      playBtn.classList.toggle("red", gameActive);
+      const iconText = gameActive ? "stop" : "play_arrow";
+      const btnText = gameActive ? "Stop Game" : "Start Game";
+      playBtn.innerHTML = `<i class="material-icons left">${iconText}</i>${btnText}`;
+    }
 
-      // --- Dark Mode Logic ---
-      const applyDarkMode = (isDark) => {
-        document.documentElement.classList.toggle('dark', isDark);
-        darkModeToggle.innerHTML = isDark ? sunIcon : moonIcon;
-      };
-      darkModeToggle.addEventListener('click', () => {
-        const isDark = !document.documentElement.classList.contains('dark');
-        localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
-        applyDarkMode(isDark);
-      });
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const savedTheme = localStorage.getItem('darkMode');
-      applyDarkMode(savedTheme === 'enabled' || (savedTheme !== 'disabled' && prefersDark));
+    function updateUI(state) {
+      roundInfoEl.textContent = `Round ${state.current_round}/${state.total_rounds}`;
+      computerScoreEl.textContent = state.score.computer;
+      playerScoreEl.textContent = state.score.player;
+      resultEl.textContent = state.result;
 
-      // --- Main Game Control ---
-      async function toggleGame() {
-        clearTimeout(nextRoundTimer);
-        gameActive = !gameActive;
-        if (gameActive) {
-          await fetch("/reset_game");
-          await fetch("/start_new_round");
-          startUiUpdates();
-        } else {
-          await fetch("/reset_game");
+      // --- State Transition Logic ---
+      // Determine the current phase based on the result message from the backend
+      let currentPhase = "PROCESSED"; // Default to processed
+      if (state.result.includes("Show your move")) {
+        currentPhase = "COLLECTING";
+      }
+
+      // If the phase just changed from COLLECTING to PROCESSED, start the timer for the next round.
+      if (currentPhase === "PROCESSED" && lastKnownPhase === "COLLECTING") {
+        console.log(`Round ${state.current_round} finished. Scheduling next round.`);
+        clearTimeout(nextRoundTimer); // Ensure no double timers
+        nextRoundTimer = setTimeout(() => {
+          if (!gameActive) return;
+          console.log("Timer elapsed. Requesting next round from backend.");
+          fetch("/start_new_round");
+        }, 4000); // 4-second delay before starting next round
+      }
+      lastKnownPhase = currentPhase;
+
+      if (state.game_over) {
+        gameActive = false;
+        stopUiUpdates();
+        updateButton();
+      }
+    }
+
+    // --- Polling Functions ---
+    function startUiUpdates() {
+      if (uiUpdateInterval) return;
+      uiUpdateInterval = setInterval(async () => {
+        if (!gameActive) {
           stopUiUpdates();
+          return;
         }
-        updateButtonUI();
-      }
-
-      // --- UI Update Logic ---
-      function updateButtonUI() {
-        // Game Inactive (Start Button) = GREEN
-        playBtn.classList.toggle("bg-green-600", !gameActive);
-        playBtn.classList.toggle("hover:bg-green-700", !gameActive);
-        playBtn.classList.toggle("dark:bg-green-500", !gameActive);
-        playBtn.classList.toggle("dark:hover:bg-green-600", !gameActive);
-
-        // Game Active (Stop Button) = RED
-        playBtn.classList.toggle("bg-red-600", gameActive);
-        playBtn.classList.toggle("hover:bg-red-700", gameActive);
-        playBtn.classList.toggle("dark:bg-red-500", gameActive);
-        playBtn.classList.toggle("dark:hover:bg-red-600", gameActive);
-
-        playBtnText.textContent = gameActive ? "Stop Game" : "Start Game";
-        playBtnIcon.querySelector('path').setAttribute('d', gameActive ? stopIconPath : playIconPath);
-      }
-
-      // Initial button state
-      updateButtonUI();
-
-
-      function updateGameUI(state) {
-        roundInfoEl.textContent = `Round ${state.current_round}/${state.total_rounds}`;
-        computerScoreEl.textContent = state.score.computer;
-        playerScoreEl.textContent = state.score.player;
-        resultEl.textContent = state.result;
-
-        let currentPhase = state.result.includes("Show your move") ? "COLLECTING" : "PROCESSED";
-        if (currentPhase === "PROCESSED" && lastKnownPhase === "COLLECTING") {
-          clearTimeout(nextRoundTimer);
-          nextRoundTimer = setTimeout(() => {
-            if (gameActive) fetch("/start_new_round");
-          }, 4000);
-        }
-        lastKnownPhase = currentPhase;
-
-        if (state.game_over) {
-          gameActive = false;
-          stopUiUpdates();
-          updateButtonUI();
-        }
-      }
-
-      // --- Polling Functions ---
-      function startUiUpdates() {
-        if (uiUpdateInterval) return;
-        uiUpdateInterval = setInterval(async () => {
-          if (!gameActive) {
-            stopUiUpdates();
-            return;
-          }
-          try {
-            const res = await fetch('/get_game_state');
-            updateGameUI(await res.json());
-          } catch (error) {
-            console.error("Failed to get game state:", error);
-            gameActive = false;
-          }
-        }, 1000);
-      }
-
-      function stopUiUpdates() {
-        clearInterval(uiUpdateInterval);
-        uiUpdateInterval = null;
-      }
-
-      // --- Stats Fetching ---
-      async function fetchSystemStats() {
         try {
-          const res = await fetch('/gesture_data');
-          if (!res.ok) return;
-          const stats = await res.json();
-
-          const isOk = stats.tpu && stats.camera;
-          tpuIndicator.innerHTML = `<span class="block w-3 h-3 rounded-full ${isOk ? 'bg-green-500' : 'bg-red-500 animate-pulse'}"></span>`;
-          tpuIndicator.title = isOk ? "System OK" : `Error: ${!stats.tpu ? 'TPU' : ''} ${!stats.camera ? 'Camera' : ''} unavailable`;
-
-          document.getElementById('gesture').innerText = stats.gesture;
-          document.getElementById('confidence').innerText = stats.confidence;
-          document.getElementById('fps').innerText = stats.fps;
-          document.getElementById('infer').innerText = stats.inference_ms;
-          document.getElementById('cpu').innerText = stats.cpu;
-          document.getElementById('ram').innerText = stats.ram;
-          document.getElementById('cpu_temp').innerText = stats.cpu_temp || 'N/A';
+          const res = await fetch('/get_game_state');
+          const state = await res.json();
+          updateUI(state);
         } catch (error) {
-          console.error("Failed to fetch system stats:", error);
-          tpuIndicator.innerHTML = `<span class="block w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></span>`;
-          tpuIndicator.title = "Failed to fetch stats";
+          console.error("Failed to get game state:", error);
+          gameActive = false; // Stop game on error
         }
-      }
+      }, 1000); // Poll for UI updates every second
+    }
 
-      // --- Initial Setup ---
-      playBtn.addEventListener("click", toggleGame);
-      setInterval(fetchSystemStats, 2000);
-      fetchSystemStats();
-    });
-  </script>
+    function stopUiUpdates() {
+      clearInterval(uiUpdateInterval);
+      uiUpdateInterval = null;
+    }
+
+    // --- Stats Fetching ---
+    async function fetchSystemStats() {
+      try {
+        // This function now ONLY fetches stats for display. It does not forward them.
+        const res = await fetch('/gesture_data');
+        if (!res.ok) return;
+        const stats = await res.json();
+
+        // Update stats display
+        document.getElementById('gesture').innerText = stats.gesture;
+        document.getElementById('confidence').innerText = stats.confidence;
+        document.getElementById('fps').innerText = stats.fps;
+        document.getElementById('infer').innerText = stats.inference_ms;
+        document.getElementById('cpu').innerText = stats.cpu;
+        document.getElementById('ram').innerText = stats.ram;
+        document.getElementById('cpu_temp').innerText = stats.cpu_temp || 'N/A';
+
+      } catch (error) {
+        console.error("Failed to fetch system stats:", error);
+      }
+    }
+
+    // --- Initial Setup ---
+    playBtn.addEventListener("click", toggleGame);
+    setInterval(fetchSystemStats, 200); // Fetch display stats frequently
+
+    // Dark mode logic (unchanged)
+    const body = document.body;
+    const darkToggle = document.getElementById('darkModeToggle');
+    const applyDarkMode = (isDark) => {
+      body.classList.toggle('dark-theme', isDark);
+      darkToggle.textContent = isDark ? 'brightness_7' : 'brightness_4';
+    };
+    const toggleDarkMode = () => {
+      const isDark = !body.classList.contains('dark-theme');
+      localStorage.setItem('darkMode', isDark ? 'enabled' : 'disabled');
+      applyDarkMode(isDark);
+    };
+    if (localStorage.getItem('darkMode') === 'enabled') {
+      applyDarkMode(true);
+    }
+    darkToggle.addEventListener('click', toggleDarkMode);
+  });
+</script>
 </body>
 
 </html>
