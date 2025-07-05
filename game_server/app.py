@@ -5,6 +5,7 @@ from flask import Flask, Response, render_template, jsonify
 from collections import deque
 import cv2
 import mediapipe as mp
+import logging
 
 from utils.game_logic import prepare_round, game_state, play_round, reset_game
 from utils.draw import draw_landmarks
@@ -24,6 +25,9 @@ PREDICTION_HISTORY = deque(maxlen=5)
 interpreter, TPU_OK = load_tpu_model()
 input_details = interpreter.get_input_details() if interpreter else None
 output_details = interpreter.get_output_details() if interpreter else None
+
+# === Setup Logging ===
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
 
 # === Setup camera ===
 cap = setup_camera(camera_source)
