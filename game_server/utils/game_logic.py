@@ -105,14 +105,11 @@ class GameManager:
             call_robot_speech_api("Game reset.")
 
     def start_new_round(self):
-        """Initiates a new round if the game is not over and cooldown allows."""
+        """Initiates a new round. This function no longer checks for cooldown."""
         with self._lock:
             now = time.time()
 
             if self._game_over:
-                return
-
-            if now - self._last_round_time < COOLDOWN:
                 return
 
             if self._current_round >= self.total_rounds:
@@ -137,11 +134,17 @@ class GameManager:
     def play_round(self, player_move: str):
         """
         Processes a single round, handling valid and invalid moves safely.
+        This function is now the sole gatekeeper for the round cooldown.
         """
         with self._lock:
             now = time.time()
 
             if self._game_over:
+                return
+
+            # Cooldown check is now the first thing we do.
+            # This prevents any move from being processed if the last action was too recent.
+            if now - self._last_round_time < COOLDOWN:
                 return
 
             if player_move not in {"rock", "paper", "scissors"}:
@@ -181,7 +184,7 @@ class GameManager:
             self._last_round_time = now
 
             # Check for game over
-            if self._current_round == self.total_rounds or \
+            if self._current_round >= self.total_rounds or \
                     self._score["player"] >= (self.total_rounds // 2 + 1) or \
                     self._score["computer"] >= (self.total_rounds // 2 + 1):
                 self._game_over = True
