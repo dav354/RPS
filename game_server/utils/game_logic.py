@@ -227,11 +227,11 @@ class GameManager:
         elif (player_move, computer_move) in [("rock", "scissors"), ("paper", "rock"), ("scissors", "paper")]:
             self._result = "You Win!"
             self._score["player"] += 1
-            call_robot_speech_api(random.choice(PLAYER_WIN_RESPONSES))
+            call_robot_speech_api("You Win!")
         else:
             self._result = "Computer Wins!"
             self._score["computer"] += 1
-            call_robot_speech_api(random.choice(COMPUTER_WIN_RESPONSES))
+            call_robot_speech_api("I Won!")
 
         # Check for game over condition
         if self._current_round >= self.total_rounds or \
@@ -240,9 +240,9 @@ class GameManager:
             self._game_over = True
             final_msg = ""
             if self._score["player"] > self._score["computer"]:
-                final_msg = "Game over. You won. I'll get you next time."
+                final_msg = random.choice(PLAYER_WIN_RESPONSES)
             elif self._score["computer"] > self._score["player"]:
-                final_msg = "Game over. I am victorious. Bow to your master."
+                final_msg =random.choice(COMPUTER_WIN_RESPONSES)
             else:
                 final_msg = "Game over. It's a tie. How boring."
 
