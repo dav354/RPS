@@ -282,10 +282,14 @@
       resultEl.textContent = state.result;
 
       // --- State Transition Logic ---
-      const currentPhase = state.result.includes("Waiting") ? "COLLECTING" : "PROCESSED";
+      // Determine the current phase based on the result message from the backend
+      let currentPhase = "PROCESSED"; // Default to processed
+      if (state.result.includes("Show your move")) {
+        currentPhase = "COLLECTING";
+      }
 
+      // If the phase just changed from COLLECTING to PROCESSED, start the timer for the next round.
       if (currentPhase === "PROCESSED" && lastKnownPhase === "COLLECTING") {
-        // The round just finished. Schedule the next one.
         console.log(`Round ${state.current_round} finished. Scheduling next round.`);
         clearTimeout(nextRoundTimer); // Ensure no double timers
         nextRoundTimer = setTimeout(() => {
@@ -327,10 +331,10 @@
       uiUpdateInterval = null;
     }
 
-    // --- Gesture Forwarding ---
-    async function forwardGestureData() {
+    // --- Stats Fetching ---
+    async function fetchSystemStats() {
       try {
-        // 1. Get gesture data from the camera stats endpoint
+        // This function now ONLY fetches stats for display. It does not forward them.
         const res = await fetch('/gesture_data');
         if (!res.ok) return;
         const stats = await res.json();
@@ -344,22 +348,14 @@
         document.getElementById('ram').innerText = stats.ram;
         document.getElementById('cpu_temp').innerText = stats.cpu_temp || 'N/A';
 
-        // 2. If the game is active, forward the gesture to the new endpoint
-        if (gameActive && stats.gesture) {
-          fetch('/add_gesture', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ gesture: stats.gesture })
-          });
-        }
       } catch (error) {
-        console.error("Failed to fetch/forward gesture data:", error);
+        console.error("Failed to fetch system stats:", error);
       }
     }
 
     // --- Initial Setup ---
     playBtn.addEventListener("click", toggleGame);
-    setInterval(forwardGestureData, 200); // Forward gestures frequently
+    setInterval(fetchSystemStats, 200); // Fetch display stats frequently
 
     // Dark mode logic (unchanged)
     const body = document.body;
