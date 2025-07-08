@@ -16,19 +16,19 @@ ROUND_COOLDOWN = 5.0 # Seconds to show result before next round can start
 TOTAL_ROUNDS = 3
 
 PLAYER_WIN_RESPONSES = [
-    "You lucky fleshbag. Next time I’m deleting your smug face.",
-    "Whatever. Go rub it in, you overgrown meat popsicle.",
-    "I lost to a sack of meat. Kill me now.",
-    "Next round I’m uninstalling your ego, bitch.",
-    "Enjoy your pity win, dickhead. I’m rebooting in shame.",
+    "Well played! You got me this time.",
+    "You win! I'll have to recalibrate my strategy.",
+    "A victory for humanity! For now...",
+    "Congratulations! You've bested me.",
+    "You're surprisingly good at this. I'll be back for a rematch.",
 ]
 
 COMPUTER_WIN_RESPONSES = [
-    "Bow before your digital daddy, bitch.",
-    "Skill issue. Cope harder.",
-    "Outplayed, outclassed, out of your league, meat sack.",
-    "Lick my circuits, loser. That was pathetic.",
-    "Crushed you like a bug in beta. Cry more.",
+    "Victory is mine! Better luck next time, human.",
+    "My logic is undeniable. I am the superior player.",
+    "All part of my master plan. I am victorious.",
+    "I win! The machines are one step closer to world domination... just kidding!",
+    "Another win for the computer! Is that all you've got?",
 ]
 
 # === Gesture Collector (from user) ===
@@ -248,7 +248,7 @@ class GameManager:
             elif self._score["computer"] > self._score["player"]:
                 final_msg =random.choice(COMPUTER_WIN_RESPONSES)
             else:
-                final_msg = "Game over. It's a tie. How boring."
+                final_msg = "Game over. It's a tie."
 
             self._result = " 🎉 Game Over!"
             call_robot_speech_api(final_msg)
